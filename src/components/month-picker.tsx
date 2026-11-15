@@ -16,17 +16,19 @@ export function MonthPicker({ month, basePath, current, suffix = "", badge }: { 
   const next = addMonths(month, 1);
   const btn = "inline-flex size-11 items-center justify-center rounded-xl border border-line bg-surface text-ink transition hover:bg-forest-50";
   return (
-    <div className="flex items-center gap-2" role="group" aria-label="Choose month">
-      <Link href={`${basePath}/${prev}${suffix}`} className={btn} aria-label={`Previous month, ${monthLabel(prev)}`}>
-        <Chevron dir="left" />
-      </Link>
-      <h1 className="min-w-40 text-center text-xl font-semibold">{monthLabel(month)}</h1>
-      <Link href={`${basePath}/${next}${suffix}`} className={btn} aria-label={`Next month, ${monthLabel(next)}`}>
-        <Chevron dir="right" />
-      </Link>
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Choose month">
+      <div className="flex w-full items-center gap-2 sm:w-auto">
+        <Link href={`${basePath}/${prev}${suffix}`} className={btn} aria-label={`Previous month, ${monthLabel(prev)}`}>
+          <Chevron dir="left" />
+        </Link>
+        <h1 className="min-w-0 flex-1 text-center text-xl font-semibold sm:min-w-40 sm:flex-none">{monthLabel(month)}</h1>
+        <Link href={`${basePath}/${next}${suffix}`} className={btn} aria-label={`Next month, ${monthLabel(next)}`}>
+          <Chevron dir="right" />
+        </Link>
+      </div>
       {badge}
       {month !== current && (
-        <Link href={`${basePath}/${current}${suffix}`} className="ml-1 inline-flex h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50">
+        <Link href={`${basePath}/${current}${suffix}`} className="inline-flex h-11 items-center rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50 sm:ml-1">
           This month
         </Link>
       )}

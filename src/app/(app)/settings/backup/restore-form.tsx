@@ -41,14 +41,14 @@ export function RestoreForm() {
             Dry run of a backup from {new Date(preview.exportedAt).toLocaleString("en-US", { timeZone: "America/New_York" })}. Nothing has changed yet.
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-faint">
                 <tr>
                   <th className="py-1 font-medium">Table</th>
-                  <th className="py-1 text-right font-medium">Backup</th>
-                  <th className="py-1 text-right font-medium">Now</th>
+                  <th className="hidden py-1 text-right font-medium sm:table-cell">Backup</th>
+                  <th className="hidden py-1 text-right font-medium sm:table-cell">Now</th>
                   <th className="py-1 text-right font-medium">New</th>
-                  <th className="py-1 text-right font-medium">Same</th>
+                  <th className="hidden py-1 text-right font-medium sm:table-cell">Same</th>
                   <th className="py-1 text-right font-medium">Different</th>
                   <th className="py-1 text-right font-medium">Only now</th>
                 </tr>
@@ -59,10 +59,10 @@ export function RestoreForm() {
                   .map((t) => (
                     <tr key={t.table} className="border-t border-line/60 tabular-nums">
                       <td className="py-1">{t.table}</td>
-                      <td className="py-1 text-right">{t.inBackup}</td>
-                      <td className="py-1 text-right">{t.inDatabase}</td>
+                      <td className="hidden py-1 text-right sm:table-cell">{t.inBackup}</td>
+                      <td className="hidden py-1 text-right sm:table-cell">{t.inDatabase}</td>
                       <td className="py-1 text-right">{t.newRows || ""}</td>
-                      <td className="py-1 text-right text-muted">{t.identical || ""}</td>
+                      <td className="hidden py-1 text-right text-muted sm:table-cell">{t.identical || ""}</td>
                       <td className={`py-1 text-right ${t.different ? "font-medium text-warn" : ""}`}>{t.different || ""}</td>
                       <td className={`py-1 text-right ${t.onlyInDatabase ? "font-medium text-warn" : ""}`}>{t.onlyInDatabase || ""}</td>
                     </tr>

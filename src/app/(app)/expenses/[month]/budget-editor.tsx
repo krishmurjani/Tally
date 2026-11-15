@@ -80,7 +80,7 @@ export function BudgetEditor({
                 <tr key={c.id} className="border-t border-line/60">
                   <td className="py-2 pr-2">{c.name}</td>
                   <td className="py-2 pr-2">
-                    <span className={`flex w-32 items-center rounded-lg border bg-surface px-2 ${parsed[c.id] === null ? "border-danger" : "border-line"}`}>
+                    <span className={`flex w-28 items-center rounded-lg border bg-surface px-2 sm:w-32 ${parsed[c.id] === null ? "border-danger" : "border-line"}`}>
                       <span className="text-muted">$</span>
                       <input
                         inputMode="decimal"

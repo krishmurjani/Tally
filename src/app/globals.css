@@ -28,6 +28,7 @@ html {
 }
 
 body {
+  overflow-x: clip;
   font-family: var(--font-sans);
   font-feature-settings: "tnum" 1;
 }

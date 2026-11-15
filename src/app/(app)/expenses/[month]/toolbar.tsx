@@ -30,8 +30,8 @@ export function SyncButton({ month }: { month: string }) {
     },
   });
   return (
-    <div className="relative">
-      <button disabled={a.pending} onClick={() => a.run({ month })} className={btnPrimary}>
+    <div className="relative col-span-2 sm:col-span-1">
+      <button disabled={a.pending} onClick={() => a.run({ month })} className={`${btnPrimary} w-full sm:w-auto`}>
         <span className={a.pending ? "animate-spin" : ""}>
           <Icon>
             <path d="M16.5 10a6.5 6.5 0 1 1-2-4.7" />
@@ -74,8 +74,8 @@ export function SourceSwitch({ month, source }: { month: string; source: "api" |
     return () => cancelAnimationFrame(t);
   }, []);
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <div role="radiogroup" aria-label="Data source for this month" title={source === null ? "Choose where this month's data comes from" : undefined} className="relative inline-flex h-11 items-stretch gap-0.5 rounded-xl border border-line bg-surface p-1 text-sm">
+    <div className="flex flex-col items-stretch gap-1.5 sm:items-start">
+      <div role="radiogroup" aria-label="Data source for this month" title={source === null ? "Choose where this month's data comes from" : undefined} className="relative flex h-11 w-full items-stretch gap-0.5 rounded-xl border border-line bg-surface p-1 text-sm sm:inline-flex sm:w-fit">
         {box && (
           <span
             aria-hidden="true"
@@ -95,7 +95,7 @@ export function SourceSwitch({ month, source }: { month: string; source: "api" |
               aria-checked={active}
               disabled={a.pending}
               onClick={() => !active && a.run({ month, source: value })}
-              className={`relative z-10 whitespace-nowrap rounded-lg px-4 font-medium transition-colors duration-200 ${active ? "text-white" : "text-muted hover:text-forest-800"}`}
+              className={`relative z-10 flex-1 whitespace-nowrap rounded-lg px-4 font-medium transition-colors duration-200 sm:flex-none ${active ? "text-white" : "text-muted hover:text-forest-800"}`}
             >
               {label}
             </button>
@@ -112,7 +112,7 @@ export function CloseMonthButton({ month, version, blockers }: { month: string; 
   const [confirming, setConfirming] = useState(false);
   if (blockers > 0) {
     return (
-      <span className="inline-flex h-11 items-center gap-2 rounded-xl border border-warn/25 bg-warn-50 px-3 text-sm text-warn">
+      <span className="col-span-2 inline-flex min-h-11 items-center gap-2 rounded-xl border border-warn/25 bg-warn-50 px-3 text-sm text-warn sm:col-span-1">
         <Icon>
           <rect x="4.5" y="9" width="11" height="7.5" rx="1.5" />
           <path d="M7 9V6.8a3 3 0 0 1 6 0V9" />

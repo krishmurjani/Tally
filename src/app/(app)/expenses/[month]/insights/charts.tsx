@@ -112,7 +112,7 @@ export function BudgetBars({ data }: { data: { category: string; actual: number;
           <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16 }} barGap={2} barCategoryGap="28%">
             <CartesianGrid horizontal={false} stroke={GRID} />
             <XAxis type="number" tickFormatter={axisUsd} stroke={MUTED} fontSize={12} />
-            <YAxis type="category" dataKey="category" width={120} stroke={MUTED} fontSize={12} tickLine={false} />
+            <YAxis type="category" dataKey="category" width={96} stroke={MUTED} fontSize={12} tickLine={false} />
             <Tooltip
               cursor={{ fill: "rgba(47,107,79,0.06)" }}
               content={({ active, payload }) => {

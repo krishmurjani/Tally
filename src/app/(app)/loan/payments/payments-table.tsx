@@ -5,7 +5,7 @@ import { Drawer } from "@/components/drawer";
 import { Select } from "@/components/select";
 import { SaveStatus } from "@/components/save-status";
 import { Badge } from "@/components/ui";
-import { todayNY } from "@/engines/dates";
+import { shortDate, todayNY } from "@/engines/dates";
 import { effectiveStatus, PAYMENT_TYPE_LABEL, type LenderPaymentStatus } from "@/engines/loan/ledger";
 import { formatINR } from "@/engines/money";
 import { newIdempotencyKey, useAction } from "@/lib/client/use-action";
@@ -168,7 +168,7 @@ export function PaymentsTable({ payments }: { payments: PaymentRecord[] }) {
           ariaLabel="Filter by payer"
           value={payer}
           onChange={setPayer}
-          className="w-44"
+          className="min-w-36 flex-1 sm:w-44 sm:flex-none"
           options={[
             { value: "", label: "Everyone" },
             { value: "krish", label: "Me" },
@@ -180,7 +180,7 @@ export function PaymentsTable({ payments }: { payments: PaymentRecord[] }) {
           ariaLabel="Filter by status"
           value={status}
           onChange={setStatus}
-          className="w-44"
+          className="min-w-36 flex-1 sm:w-44 sm:flex-none"
           options={[
             { value: "", label: "All statuses" },
             { value: "paid", label: "Paid" },
@@ -189,12 +189,38 @@ export function PaymentsTable({ payments }: { payments: PaymentRecord[] }) {
             { value: "bounced", label: "Bounced" },
           ]}
         />
-        <button onClick={() => setEditing("new")} className="ml-auto h-11 rounded-xl border border-line bg-surface px-4 text-sm font-medium hover:bg-forest-50">
+        <button onClick={() => setEditing("new")} className="h-11 w-full rounded-xl border border-line bg-surface px-4 text-sm font-medium hover:bg-forest-50 sm:ml-auto sm:w-auto">
           + Add payment
         </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
+      {/* Phones and tablets: one card per payment. Wide screens: the table. */}
+      <ul className="space-y-2 lg:hidden">
+        {rows.map(({ p, st }) => (
+          <li key={p.id} className={`rounded-2xl border border-line bg-surface p-4 ${st === "bounced" ? "text-muted" : ""}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium tabular-nums">Due {shortDate(p.dueDate)}</p>
+                <p className="text-xs text-muted">{p.paidDate ? `Paid ${shortDate(p.paidDate)}` : "Not paid yet"}</p>
+              </div>
+              <p className={`text-lg tabular-nums ${st === "bounced" ? "line-through" : "font-semibold"}`}>{formatINR(p.amountMinor)}</p>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+              <Badge tone={STATUS_TONE[st]}>{st === "bounced" ? "Bounced · excluded" : st[0]!.toUpperCase() + st.slice(1)}</Badge>
+              <Badge>{PAYMENT_TYPE_LABEL[p.type]}</Badge>
+              {p.payer && <Badge>{PAYER[p.payer]}</Badge>}
+            </div>
+            <p className="mt-2 text-xs text-muted">{p.interestMinor === null ? "Allocation not entered" : `${formatINR(p.interestMinor)} interest · ${formatINR(p.principalMinor!)} principal`}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {(st === "planned" || st === "overdue") && <MarkPaid p={p} />}
+              <button onClick={() => setEditing(p)} className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium hover:bg-forest-50">
+                Edit
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto lg:block">
+        <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-faint">
             <tr className="border-b border-line">
               <th className="py-2 pr-3 font-medium">Due</th>

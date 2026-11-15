@@ -8,11 +8,14 @@ export interface CategoryTone {
   background: string;
   color: string;
   dot: string;
+  /** Tile border and bar fill. */
+  border: string;
+  bar: string;
 }
 
 export function categoryTone(name: string | null, order: string[]): CategoryTone {
-  if (!name) return { background: "#fdf6e3", color: "#7a5000", dot: "#c98500" };
+  if (!name) return { background: "#fdf6e3", color: "#7a5000", dot: "#c98500", border: "#ecdcb8", bar: "#c98500" };
   const i = Math.max(0, order.indexOf(name));
   const h = HUES[i % HUES.length]!;
-  return { background: `hsl(${h} 70% 92%)`, color: `hsl(${h} 55% 24%)`, dot: `hsl(${h} 60% 45%)` };
+  return { background: `hsl(${h} 70% 92%)`, color: `hsl(${h} 55% 24%)`, dot: `hsl(${h} 60% 45%)`, border: `hsl(${h} 50% 85%)`, bar: `hsl(${h} 55% 42%)` };
 }

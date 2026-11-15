@@ -69,7 +69,7 @@ export default async function LoanPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Repayment schedule" action={<Provenance label={schedule.provenance} />}>
-          <dl className="grid grid-cols-[11rem_1fr] gap-x-3 gap-y-2 text-sm">
+          <dl className="grid gap-x-3 gap-y-1 text-sm sm:grid-cols-[11rem_1fr] sm:gap-y-2 [&_dd]:mb-2 sm:[&_dd]:mb-0">
             <dt className="text-muted">Issued</dt>
             <dd>{schedule.issuedOn}</dd>
             <dt className="text-muted">Opening outstanding</dt>

@@ -118,15 +118,15 @@ export function NeedsAttention({
         {items.map((r) => {
           const s = statusLabel(r);
           return (
-            <li key={r.key} className={`flex items-center gap-1 transition ${picked.has(r.key) ? "bg-forest-50/50" : ""}`}>
+            <li key={r.key} className={`flex flex-wrap items-center gap-x-1 transition sm:flex-nowrap ${picked.has(r.key) ? "bg-forest-50/50" : ""}`}>
               {canBulk && (
                 <label className="grid size-11 shrink-0 cursor-pointer place-items-center">
                   <input type="checkbox" checked={picked.has(r.key)} onChange={() => toggle(r.key)} aria-label={`Select ${r.description}`} className="size-4 accent-forest-700" />
                 </label>
               )}
-              <button onClick={() => setOpenKey(r.key)} className="flex min-w-0 flex-1 items-center justify-between gap-3 py-3 text-left hover:bg-forest-50/50">
+              <button onClick={() => setOpenKey(r.key)} className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1.5 py-3 text-left hover:bg-forest-50/50 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{r.description}</p>
+                  <p className="truncate font-medium sm:max-w-none">{r.description}</p>
                   <p className="text-sm text-muted">
                     {shortDate(r.date)} · {why(r)}
                   </p>

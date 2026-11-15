@@ -371,7 +371,7 @@ export function Planner({
 
         {result.saveFirst && (
           <Card title="Save-first fund">
-            <dl className="grid grid-cols-[12rem_1fr] gap-x-3 gap-y-1.5 text-sm">
+            <dl className="grid gap-x-3 gap-y-1 text-sm sm:grid-cols-[12rem_1fr] [&>dd]:mb-2 sm:[&>dd]:mb-0">
               <dt className="text-muted">Put in</dt>
               <dd>
                 {usd(result.lumpSumUsdMinor)} lump + {usd(result.saveFirst.totalContributedUsdMinor)} monthly
@@ -400,14 +400,14 @@ export function Planner({
           <details>
             <summary className="cursor-pointer text-sm text-muted">{futurePeriods.length} months from the start date</summary>
             <div className="mt-3 max-h-96 overflow-auto">
-              <table className="w-full min-w-[640px] text-sm">
+              <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-surface text-left text-xs uppercase text-faint">
                   <tr>
                     <th className="py-1 font-medium">Date</th>
-                    <th className="py-1 text-right font-medium">Opening</th>
+                    <th className="hidden py-1 text-right font-medium sm:table-cell">Opening</th>
                     <th className="py-1 text-right font-medium">Interest</th>
-                    <th className="py-1 text-right font-medium">Scheduled</th>
-                    <th className="py-1 text-right font-medium">Extra</th>
+                    <th className="hidden py-1 text-right font-medium sm:table-cell">Scheduled</th>
+                    <th className="hidden py-1 text-right font-medium sm:table-cell">Extra</th>
                     <th className="py-1 text-right font-medium">Closing</th>
                   </tr>
                 </thead>
@@ -415,13 +415,13 @@ export function Planner({
                   {futurePeriods.map((p) => (
                     <tr key={p.date} className={`border-t border-line/60 ${p.warnings.includes("below_interest") ? "text-warn" : ""}`}>
                       <td className="py-1 tabular-nums">{p.date}</td>
-                      <td className="py-1 text-right tabular-nums">{inr(p.openingMinor)}</td>
+                      <td className="hidden py-1 text-right tabular-nums sm:table-cell">{inr(p.openingMinor)}</td>
                       <td className="py-1 text-right tabular-nums">{inr(p.interestMinor)}</td>
-                      <td className="py-1 text-right tabular-nums">
+                      <td className="hidden py-1 text-right tabular-nums sm:table-cell">
                         {inr(p.requiredMinor)}
                         {p.requiredSource === "recorded" ? "*" : ""}
                       </td>
-                      <td className="py-1 text-right tabular-nums">{p.extraMinor ? inr(Math.min(p.extraMinor, p.paymentMinor)) : "—"}</td>
+                      <td className="hidden py-1 text-right tabular-nums sm:table-cell">{p.extraMinor ? inr(Math.min(p.extraMinor, p.paymentMinor)) : "—"}</td>
                       <td className="py-1 text-right tabular-nums">{inr(p.closingMinor)}</td>
                     </tr>
                   ))}
