@@ -6,3 +6,4 @@ fixtures/private/
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+backups/

@@ -11,7 +11,8 @@ function pool(): Pool {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
   // One pool per process (survives dev hot reloads).
-  globalForDb.tallyPool ??= new Pool({ connectionString: url, max: 5 });
+  // Small pool with short idle timeout: suits serverless (Vercel Fluid) and Neon's pooled endpoint.
+  globalForDb.tallyPool ??= new Pool({ connectionString: url, max: 5, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 10_000 });
   return globalForDb.tallyPool;
 }
 

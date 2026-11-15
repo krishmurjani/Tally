@@ -8,6 +8,22 @@ import Link from "next/link";
 import { loadCategories } from "@/server/repos/rules";
 import { CategoriesForm } from "./categories-form";
 import { ThresholdForm } from "./threshold-form";
+import { signOut } from "@/auth";
+
+function SignOutButton() {
+  return (
+    <form
+      action={async () => {
+        "use server";
+        await signOut({ redirectTo: "/signin" });
+      }}
+    >
+      <button type="submit" className="h-10 rounded-lg border border-line px-3 text-sm hover:bg-forest-50">
+        Sign out
+      </button>
+    </form>
+  );
+}
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -37,15 +53,29 @@ export default async function SettingsPage() {
       <Card title="Categories">
         <CategoriesForm categories={categories.map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} />
       </Card>
-      <Card title="History">
-        <p className="text-sm text-muted">
-          Import monthly category totals from old spreadsheets.{" "}
-          <Link href="/settings/history" className="font-medium text-forest-700 hover:underline">
-            Import history
-          </Link>
-        </p>
+      <Card title="Data">
+        <ul className="space-y-2 text-sm">
+          <li>
+            <Link href="/settings/backup" className="font-medium text-forest-700 hover:underline">
+              Backup &amp; export
+            </Link>{" "}
+            <span className="text-muted">— full backup, CSV spreadsheets, restore with a dry run</span>
+          </li>
+          <li>
+            <Link href="/settings/history" className="font-medium text-forest-700 hover:underline">
+              Import history
+            </Link>{" "}
+            <span className="text-muted">— monthly category totals from old spreadsheets</span>
+          </li>
+          <li>
+            <Link href="/expenses/import" className="font-medium text-forest-700 hover:underline">
+              Import Splitwise CSV exports
+            </Link>{" "}
+            <span className="text-muted">— fallback when sync isn&apos;t available</span>
+          </li>
+        </ul>
       </Card>
-      <Card title="Account">
+      <Card title="Account" action={<SignOutButton />}>
         <dl className="grid gap-2 text-sm sm:grid-cols-[12rem_1fr]">
           <dt className="text-muted">Signed in as</dt>
           <dd>{settings.email}</dd>
@@ -53,7 +83,7 @@ export default async function SettingsPage() {
           <dd>{settings.splitwiseUserId ?? "Not connected yet (Phase 4)"}</dd>
         </dl>
       </Card>
-      <Card title="Data">
+      <Card title="Stored records">
         <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
           {Object.entries(status).map(([k, n]) => (
             <li key={k} className="flex justify-between border-b border-line/60 py-1.5">

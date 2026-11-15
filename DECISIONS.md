@@ -119,5 +119,24 @@ Each item is something I decided without an explicit instruction. Mark any you d
 68. **Linking** the planner to a recorded month copies that month's income and spending into the plan at link time. If the month later changes, the planner shows the difference and an "Update the plan" button; it never updates silently. A missing value in the linked month counts as $0 and is called out.
 69. Planner "living expenses" are meant to exclude the loan payment (see 30). A linked month's spending is its whole Tally total, which doesn't include the loan payment, since the loan isn't an expense category.
 
+## Backup, export, PWA, polish (Phase 7)
+70. **Backup format**: `{ format: "tally-backup", version: 1, exportedAt, owner, tables }`. It covers every owner table, including raw Splitwise JSON, imported CSV text and the audit log. Sync-run history is not backed up, and each expense's link to its sync run is cleared. The web download is gzip-compressed (`.json.gz`) to stay under Vercel's 4.5 MB response limit; `pnpm backup` has no limit.
+71. **Restore** always runs a dry run first, with per-table counts of new / identical / different / only-in-database rows. Then either:
+    - **merge** adds only rows whose id is missing; rows that differ are untouched; any conflict aborts the whole restore and nothing changes.
+    - **replace** deletes this owner's data and loads the backup; it requires typing `REPLACE` (CLI: `--replace --yes`).
+    A backup restores only into the same account. Unsupported versions and unknown fields are refused.
+72. **CSV exports** use exact decimal strings. Text cells starting with `= + - @` are prefixed with `'` so spreadsheets don't run them as formulas; numbers are never altered. The expenses CSV covers detailed months only and includes excluded and review rows with their reasons. The projection CSV is the saved plan, labelled "estimate, not lender ledger".
+73. **PWA**: the web manifest (standalone, start `/expenses`) plus generated PNG icons (any and maskable) and an Apple touch icon. No offline caching or service worker, per the spec.
+74. **Security headers**: `X-Frame-Options: DENY`, CSP `frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com`, `nosniff`, `Referrer-Policy: same-origin`, a restrictive `Permissions-Policy`, and HSTS. There's no full script CSP, because Next's inline scripts would need nonces.
+75. **Postgres pool**: max 5 connections, 10 s idle timeout. That suits Vercel Fluid compute with Neon's pooled URL. Migrations run manually against the direct URL, never during the build.
+
+## Not yet verified (overall)
+- **Real Google sign-in.** The allowlist, session checks and owner guard are tested with test sessions, but no real Google OAuth round trip has been made, and the CSP `form-action` allowance for Google hasn't been exercised by a real sign-in.
+- **Splitwise API** (needs `SPLITWISE_API_KEY`): whether the API accepts the key as `Bearer`; whether deleted expenses are returned; whether API dates converted to New York time match the CSV dates (`pnpm compare <month>`); whether the API owed_share totals match the CSV for August/September.
+- **September 2026 full-month target ($1,916.51)**: the CSV exports end mid-month, so this needs a later export or the API.
+- **Interactive UI in a real browser**: sliders, drawers, charts, autosave and file uploads. Pages were verified over HTTP on dev and production servers, and the actions/repositories by tests, but not by clicking through (the Chrome extension couldn't reach localhost).
+- **Vercel + Neon deployment.** Not deployed; the README has the steps.
+- **Historical workbooks**: no real summary file imported yet.
+
 ## Open questions
 Questions about specific rows in the private fixtures are raised in the phase reports, not here, so no fixture contents end up in the repo. Resolve them in the app with per-expense decisions or category overrides.
