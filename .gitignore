@@ -8,3 +8,5 @@ fixtures/private/
 next-env.d.ts
 backups/
 .artifacts/
+.vercel
+.env*

@@ -77,6 +77,28 @@ export async function markNotExpense(db: AnyDb, owner: Owner, input: { rowKey: s
   });
 }
 
+/** "Not an expense" on many rows. Rows that already have an active decision are skipped, not failed. Idempotent per row. */
+export async function markNotExpenseBulk(db: AnyDb, owner: Owner, input: { rowKeys: string[]; reason: string | null; idempotencyKey: string }) {
+  const keys = [...new Set(input.rowKeys)];
+  return db.transaction(async (tx) => {
+    const active = pinnedMap(await loadDecisions(tx, owner));
+    let marked = 0;
+    for (const rowKey of keys) {
+      if (active.has(rowKey)) continue;
+      const ins = await tx
+        .insert(schema.expenseDecisions)
+        .values({ ownerId: owner.id, rowKey, reason: input.reason?.trim() || null, state: "pinned", origin: "manual", idempotencyKey: `${input.idempotencyKey}:${rowKey}` })
+        .onConflictDoNothing()
+        .returning({ id: schema.expenseDecisions.id });
+      if (ins.length) {
+        marked++;
+        await audit(tx, owner, ins[0]!.id, "create", null, { rowKey, bulk: true });
+      }
+    }
+    return { marked, skipped: keys.length - marked };
+  });
+}
+
 /** Undo: the decision is revoked (kept for history), the row counts again. */
 export async function revokeDecision(db: AnyDb, owner: Owner, input: { id: string; expectedVersion: number }): Promise<void> {
   await db.transaction(async (tx) => {

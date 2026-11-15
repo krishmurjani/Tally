@@ -5,7 +5,7 @@ import { z } from "zod";
 import { assertIsoDate, isMonthKey, monthOf } from "@/engines/dates";
 import { isParsableMinor, parseMinor } from "@/engines/money";
 import { importCsvFiles, MAX_CSV_BYTES } from "../repos/csv-import";
-import { markNotExpense, pinDecisionTo, revokeDecision } from "../repos/decisions";
+import { markNotExpense, markNotExpenseBulk, pinDecisionTo, revokeDecision } from "../repos/decisions";
 import { UserFacingError } from "../repos/errors";
 import {
   addManualExpense,
@@ -14,6 +14,7 @@ import {
   mapSplitwiseCategory,
   resetCategoryOverride,
   setCategoryOverride,
+  setCategoryOverridesBulk,
   setLargeDismissed,
   updateManualExpense,
 } from "../repos/expenses";
@@ -74,6 +75,20 @@ export async function markNotExpenseAction(input: unknown) {
     input,
     ({ db, owner, input }) => markNotExpense(db, owner, input),
   );
+  if (res.ok) refresh();
+  return res;
+}
+
+const RowKeys = z.array(z.string().min(3).max(300)).min(1).max(200);
+
+export async function setCategoryBulkAction(input: unknown) {
+  const res = await ownerAction(z.object({ rowKeys: RowKeys, categoryId: z.uuid() }), input, ({ db, owner, input }) => setCategoryOverridesBulk(db, owner, input));
+  if (res.ok) refresh();
+  return res;
+}
+
+export async function markNotExpenseBulkAction(input: unknown) {
+  const res = await ownerAction(z.object({ rowKeys: RowKeys, reason: z.string().max(300).nullable(), idempotencyKey: IdemKey }), input, ({ db, owner, input }) => markNotExpenseBulk(db, owner, input));
   if (res.ok) refresh();
   return res;
 }

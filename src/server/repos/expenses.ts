@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { monthOf } from "@/engines/dates";
 import * as schema from "../db/schema";
@@ -43,6 +43,25 @@ export async function resetCategoryOverride(db: AnyDb, owner: Owner, input: { ro
       .returning();
     if (res.length) await audit(tx, owner, "category_override", input.rowKey, "reset", { categoryId: res[0]!.categoryId }, null);
   });
+}
+
+/** Set one category on many rows at once (one transaction). */
+export async function setCategoryOverridesBulk(db: AnyDb, owner: Owner, input: { rowKeys: string[]; categoryId: string }) {
+  const keys = [...new Set(input.rowKeys)];
+  await db.transaction(async (tx) => {
+    const cat = await ownCategory(tx, owner, input.categoryId);
+    for (const rowKey of keys) {
+      await tx
+        .insert(schema.categoryOverrides)
+        .values({ ownerId: owner.id, rowKey, categoryId: cat.id })
+        .onConflictDoUpdate({
+          target: [schema.categoryOverrides.ownerId, schema.categoryOverrides.rowKey],
+          set: { categoryId: cat.id, version: sql`${schema.categoryOverrides.version} + 1`, updatedAt: new Date() },
+        });
+    }
+    await audit(tx, owner, "category_override", `bulk:${keys.length}`, "set_bulk", null, { category: cat.name, rowKeys: keys });
+  });
+  return { updated: keys.length };
 }
 
 /** "Always map this Splitwise category → X" (also how a suggestion gets confirmed). */
