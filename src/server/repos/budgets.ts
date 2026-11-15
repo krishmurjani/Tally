@@ -99,3 +99,42 @@ export async function createCategory(db: AnyDb, owner: Owner, input: { name: str
     return { id: row!.id, name: row!.name };
   });
 }
+
+/**
+ * Create a category together with its budget.
+ * - scope "month": the budget applies to that month only (the month gets its own full budget snapshot).
+ * - scope "default": the budget becomes a default from that month on; months with their own saved budget keep theirs.
+ * Past months are never touched. All in one transaction.
+ */
+export async function createCategoryWithBudget(
+  db: AnyDb,
+  owner: Owner,
+  input: { name: string; amountMinor: number; scope: "month" | "default"; month: MonthKey },
+) {
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor < 0) throw new UserFacingError("The budget can't be negative");
+  return db.transaction(async (tx) => {
+    const rec = await getMonthRecord(tx, owner, input.month);
+    const closed = rec?.status === "closed";
+    if (closed && input.scope === "month") throw new UserFacingError("This month is closed — its budget is frozen. Reopen it, or add the category as a default from a later month.");
+    const cat = await createCategory(tx, owner, { name: input.name });
+    if (input.scope === "month") {
+      // The month needs its own complete budget, otherwise the other categories would lose theirs.
+      const current = (await budgetForMonth(tx, owner, input.month)).amounts;
+      for (const [categoryId, amount] of Object.entries({ ...current, [cat.id]: input.amountMinor })) {
+        await tx
+          .insert(schema.monthBudgets)
+          .values({ ownerId: owner.id, month: input.month, categoryId, amountMinor: amount })
+          .onConflictDoUpdate({ target: [schema.monthBudgets.ownerId, schema.monthBudgets.month, schema.monthBudgets.categoryId], set: { amountMinor: amount, updatedAt: new Date() } });
+      }
+    } else {
+      await tx.insert(schema.budgetDefaults).values({ ownerId: owner.id, categoryId: cat.id, amountMinor: input.amountMinor, effectiveFrom: input.month });
+      // A month that already has its own budget snapshot doesn't follow defaults, so give it this one too.
+      const own = await tx.select({ id: schema.monthBudgets.id }).from(schema.monthBudgets).where(and(eq(schema.monthBudgets.ownerId, owner.id), eq(schema.monthBudgets.month, input.month))).limit(1);
+      if (own.length && !closed) {
+        await tx.insert(schema.monthBudgets).values({ ownerId: owner.id, month: input.month, categoryId: cat.id, amountMinor: input.amountMinor }).onConflictDoNothing();
+      }
+    }
+    await tx.insert(schema.auditLog).values({ ownerId: owner.id, entity: "category", entityId: cat.id, action: `create_${input.scope}`, before: null, after: { name: cat.name, amountMinor: input.amountMinor, month: input.month } });
+    return cat;
+  });
+}

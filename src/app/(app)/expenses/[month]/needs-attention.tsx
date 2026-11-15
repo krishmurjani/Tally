@@ -12,6 +12,7 @@ import type { DisplayRow } from "@/server/month-data";
 import { categoryTone } from "@/lib/category-colors";
 import { newIdempotencyKey, useAction } from "@/lib/client/use-action";
 import { markNotExpenseBulkAction, setCategoryBulkAction, setLargeDismissedAction } from "@/server/actions/expenses";
+import { useNewCategory } from "./new-category";
 import { RowDrawer, statusLabel } from "./transactions";
 
 function DismissLarge({ rowKey }: { rowKey: string }) {
@@ -39,6 +40,7 @@ export function NeedsAttention({
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [confirmNot, setConfirmNot] = useState(false);
+  const newCategory = useNewCategory();
   const [reason, setReason] = useState("");
   const [idem, setIdem] = useState(newIdempotencyKey);
   const bulkCat = useAction(setCategoryBulkAction, { success: (d) => `Category set on ${d.updated} expense${d.updated === 1 ? "" : "s"}` });
@@ -81,6 +83,7 @@ export function NeedsAttention({
           {selected.length > 0 && (
             <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
               <Select
+                onCreate={newCategory ? () => newCategory(async (id) => { const r = await bulkCat.run({ rowKeys: selected, categoryId: id }); if (r?.ok) setPicked(new Set()); }) : undefined}
                 ariaLabel="Set category for selected"
                 value=""
                 placeholder="Set category…"

@@ -13,6 +13,7 @@ import { budgetForMonth } from "@/server/repos/budgets";
 import { BudgetEditor } from "./budget-editor";
 import { AddExpenseButton } from "./expense-form";
 import { NeedsAttention } from "./needs-attention";
+import { NewCategoryProvider } from "./new-category";
 import { btnSecondary, ChangesBanner, CloseMonthButton, ReopenMonthButton, SourceSwitch, StatusChip, SyncButton } from "./toolbar";
 import { Transactions } from "./transactions";
 
@@ -37,6 +38,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
   const actuals = s && v.kind !== "none" ? Object.fromEntries(s.byCategory.map((c) => [c.category, c.actualMinor])) : null;
 
   return (
+    <NewCategoryProvider month={month} closed={closed}>
     <div className="space-y-6">
       <MonthHeader month={month} tab="spending" badge={<StatusChip closed={closed} monthToDate={v.isCurrentMonth} />} />
 
@@ -201,5 +203,6 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
         </>
       )}
     </div>
+    </NewCategoryProvider>
   );
 }

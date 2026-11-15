@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addMonths, isMonthKey } from "@/engines/dates";
-import { budgetForMonth, createCategory, saveDefaultBudget, saveMonthBudget } from "../repos/budgets";
+import { budgetForMonth, createCategory, createCategoryWithBudget, saveDefaultBudget, saveMonthBudget } from "../repos/budgets";
+import { isParsableMinor, parseMinor } from "@/engines/money";
 import { ownerAction } from "./run";
 
 const Month = z.string().refine(isMonthKey, "Expected YYYY-MM");
@@ -30,6 +31,26 @@ export async function previousBudgetAction(input: unknown) {
 
 export async function createCategoryAction(input: unknown) {
   const res = await ownerAction(z.object({ name: z.string().trim().min(1).max(60) }), input, ({ db, owner, input }) => createCategory(db, owner, input));
+  if (res.ok) revalidatePath("/", "layout");
+  return res;
+}
+
+export async function createCategoryWithBudgetAction(input: unknown) {
+  const res = await ownerAction(
+    z.object({
+      name: z.string().trim().min(1, "Give the category a name").max(60),
+      budget: z
+        .string()
+        .trim()
+        .transform((v) => (v === "" ? "0" : v))
+        .refine(isParsableMinor, "Enter a budget like 50 or 50.00")
+        .transform(parseMinor),
+      scope: z.enum(["month", "default"]),
+      month: Month,
+    }),
+    input,
+    ({ db, owner, input }) => createCategoryWithBudget(db, owner, { name: input.name, amountMinor: input.budget, scope: input.scope, month: input.month }),
+  );
   if (res.ok) revalidatePath("/", "layout");
   return res;
 }

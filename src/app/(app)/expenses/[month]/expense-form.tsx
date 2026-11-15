@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { SaveStatus } from "@/components/save-status";
 import { Select } from "@/components/select";
+import { useNewCategory } from "./new-category";
 import { categoryTone } from "@/lib/category-colors";
 import { monthBounds, todayNY } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
@@ -35,6 +36,7 @@ export function ExpenseForm({
 }) {
   const { start, end } = monthBounds(month);
   const today = todayNY();
+  const newCategory = useNewCategory();
   const [idem] = useState(newIdempotencyKey);
   const [date, setDate] = useState(editing?.date ?? (today >= start && today <= end ? today : start));
   const [description, setDescription] = useState(editing?.description ?? "");
@@ -68,7 +70,7 @@ export function ExpenseForm({
       </label>
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Category</span>
-        <Select ariaLabel="Category" value={categoryId} onChange={setCategoryId} options={categories.map((c) => ({ value: c.id, label: c.name, dot: categoryTone(c.name, categories.map((x) => x.name)).dot }))} />
+        <Select ariaLabel="Category" onCreate={newCategory ? () => newCategory((id) => setCategoryId(id)) : undefined} value={categoryId} onChange={setCategoryId} options={categories.map((c) => ({ value: c.id, label: c.name, dot: categoryTone(c.name, categories.map((x) => x.name)).dot }))} />
       </label>
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Amount (USD) — use a minus sign for a refund</span>

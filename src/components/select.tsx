@@ -118,6 +118,8 @@ export function Select({
   hideChevron,
   menuMinWidth = 0,
   align = "start",
+  onCreate,
+  createLabel = "New category…",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -134,6 +136,9 @@ export function Select({
   hideChevron?: boolean;
   menuMinWidth?: number;
   align?: "start" | "end";
+  /** Adds a "create new" row at the bottom of the list. */
+  onCreate?: () => void;
+  createLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -236,6 +241,22 @@ export function Select({
             {o.value === value && <Check />}
           </div>
         ))}
+        {onCreate && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setOpen(false);
+              onCreate();
+            }}
+            className="mt-1 flex w-full items-center gap-2.5 rounded-lg border-t border-line px-3 pb-2 pt-3 text-left text-sm font-medium text-forest-700 transition hover:bg-forest-50"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M10 4.5v11M4.5 10h11" />
+            </svg>
+            {createLabel}
+          </button>
+        )}
       </Popover>
     </div>
   );

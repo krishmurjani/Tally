@@ -21,6 +21,7 @@ import {
 } from "@/server/actions/expenses";
 import type { DisplayRow } from "@/server/month-data";
 import { ExpenseForm } from "./expense-form";
+import { useNewCategory } from "./new-category";
 
 type Cat = { id: string; name: string };
 const NEEDS = "__needs__";
@@ -74,9 +75,11 @@ function CategoryPill({ row, categories, order, editable }: { row: DisplayRow; c
     );
   }
   const options = categories.map((c) => ({ value: c.id, label: c.name, dot: categoryTone(c.name, order).dot }));
+  const newCategory = useNewCategory();
   return (
     <span className="inline-flex flex-col items-start gap-1">
       <Select
+        onCreate={newCategory ? () => newCategory((id) => set.run({ rowKey: row.key, categoryId: id })) : undefined}
         ariaLabel={`Category for ${row.description}`}
         value={currentId}
         options={options}
@@ -479,6 +482,7 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
   const [usdAmount, setUsdAmount] = useState("");
   const [editingManual, setEditingManual] = useState(false);
   const [showWork, setShowWork] = useState(false);
+  const newCategory = useNewCategory();
   const order = categories.map((c) => c.name);
   const tone = categoryTone(row.category, order);
   const currentCatId = categories.find((c) => c.name === row.category)?.id ?? "";
@@ -552,6 +556,7 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
         {!closed && row.source !== "recurring" && (
           <div className="mt-4 space-y-3">
             <Select
+              onCreate={newCategory ? () => newCategory((id) => setCat.run({ rowKey: row.key, categoryId: id })) : undefined}
               ariaLabel="Category"
               size="lg"
               value={currentCatId}

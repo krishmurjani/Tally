@@ -4,7 +4,7 @@ import * as schema from "@/server/db/schema";
 import type { ScriptDb } from "@/server/db/connect";
 import { loadMonthView, monthlySeries } from "@/server/month-data";
 import { resolveOwner, type Owner } from "@/server/owner-core";
-import { budgetForMonth, createCategory, saveDefaultBudget, saveMonthBudget } from "@/server/repos/budgets";
+import { budgetForMonth, createCategory, createCategoryWithBudget, saveDefaultBudget, saveMonthBudget } from "@/server/repos/budgets";
 import { ConflictError, UserFacingError } from "@/server/repos/errors";
 import { addManualExpense } from "@/server/repos/expenses";
 import { commitHistory, previewHistory } from "@/server/repos/history";
@@ -172,5 +172,49 @@ describe.skipIf(!up)("phase 5 data (DB)", () => {
       expect(v.summary!.previousTotalMinor).toBe(170481);
       expect(v.summary!.changeVsPreviousMinor).toBe(91000 - 170481);
     });
+  });
+});
+
+describe.skipIf(!up)("new category with a budget (DB)", () => {
+  let db: ScriptDb;
+  let close: () => Promise<void>;
+  let owner: Owner;
+  beforeAll(async () => {
+    ({ db, close } = await openTestDb());
+  });
+  afterAll(async () => close?.());
+  beforeEach(async () => {
+    await resetDb(db);
+    await seed(db, { ownerEmail: OWNER_EMAIL });
+    owner = await resolveOwner({ user: { email: OWNER_EMAIL } }, db, ENV);
+  });
+  const total = async (m: string) => Object.values((await budgetForMonth(db, owner, m)).amounts).reduce((a, b) => a + b, 0);
+
+  it("this month only: the budget applies to that month and no other", async () => {
+    const before = await total("2026-09");
+    const cat = await createCategoryWithBudget(db, owner, { name: "Trip - Miami", amountMinor: 30000, scope: "month", month: "2026-10" });
+    expect((await budgetForMonth(db, owner, "2026-10")).amounts[cat.id]).toBe(30000);
+    expect(await total("2026-10")).toBe(136800 + 30000); // every other category kept its budget
+    expect((await budgetForMonth(db, owner, "2026-09")).amounts[cat.id]).toBe(0);
+    expect((await budgetForMonth(db, owner, "2026-11")).amounts[cat.id]).toBe(0);
+    expect(await total("2026-09")).toBe(before);
+  });
+
+  it("default from a month: that month and every later one, never earlier ones", async () => {
+    const cat = await createCategoryWithBudget(db, owner, { name: "Subscriptions", amountMinor: 2500, scope: "default", month: "2026-10" });
+    const at = async (m: string) => (await budgetForMonth(db, owner, m)).amounts[cat.id];
+    expect([await at("2026-09"), await at("2026-10"), await at("2026-11"), await at("2027-06")]).toEqual([0, 2500, 2500, 2500]);
+  });
+
+  it("a month with its own budget also gets a default created from it; closed months refuse a month-only category", async () => {
+    const groceries = (await db.select().from(schema.categories)).find((c) => c.name === "Groceries")!;
+    const exp = (await budgetForMonth(db, owner, "2026-10")).amounts;
+    await saveMonthBudget(db, owner, { month: "2026-10", amounts: [{ categoryId: groceries.id, amountMinor: 15000 }], expected: exp });
+    const cat = await createCategoryWithBudget(db, owner, { name: "Pets", amountMinor: 4000, scope: "default", month: "2026-10" });
+    expect((await budgetForMonth(db, owner, "2026-10")).amounts[cat.id]).toBe(4000);
+    await addManualExpense(db, owner, { date: "2026-08-05", description: "x", categoryId: groceries.id, amountMinor: 100, note: null, idempotencyKey: "nc-1" });
+    await closeMonth(db, owner, { month: "2026-08", expectedVersion: null });
+    await expect(createCategoryWithBudget(db, owner, { name: "Late", amountMinor: 1, scope: "month", month: "2026-08" })).rejects.toBeInstanceOf(UserFacingError);
+    await expect(createCategoryWithBudget(db, owner, { name: "pets", amountMinor: 1, scope: "default", month: "2026-11" })).rejects.toBeInstanceOf(UserFacingError); // duplicate name
   });
 });
