@@ -84,5 +84,24 @@ Each item is something I decided without an explicit instruction. Mark any you d
 - Whether `get_expenses` returns deleted expenses. It's not documented; both cases are handled, and an unreturned expense goes to review.
 - That each expense's API `date`, converted to America/New_York, matches the CSV dates. `pnpm compare <month>` lists any `DATE` mismatches row by row.
 
+## Income, budgets, insights, history (Phase 5)
+58. **Income** is per paycheck (date, take-home USD ≥ 0, employer, note). A month's income is the sum of paychecks dated in it. No paychecks → "Not recorded" (and left over is "Not recorded"); a recorded $0 paycheck counts as $0. Income isn't part of a month's close snapshot, so a paycheck added later still shows for a closed month.
+59. **Budget editor** ("Edit budget" on the Spending tab):
+    - "Save for this month only" writes that month's own budget.
+    - "Save as default from this month on" writes defaults effective from that month; months that already have their own budget (including every closed month) keep theirs.
+    - "Copy last month" fills the editor with the previous month's budget.
+    - A stale edit (the budget changed since the editor opened) gets a conflict.
+    - Budgets can't be edited on a closed month.
+60. **Custom categories** are created in Settings, with case-insensitive duplicate check. There's no rename or archive yet.
+61. **History import** (Settings → Import history): header `month,category,amount`; month `YYYY-MM`; exact amounts; category names must already exist (case-insensitive). Any bad row rejects the whole file. A dry-run preview checks each month against the 15 known totals from the spec and flags mismatches before anything is saved. Re-importing a month replaces its summary. A month with detailed data ignores its summary; the summary is kept, not deleted.
+62. **Insights**:
+    - The donut shows the top 7 categories plus "Other", so it never uses more than the 8 validated colours.
+    - Colours come from the dataviz skill's reference palette, validated on the app's surface. Three hues are under 3:1 contrast, so every chart has a labelled legend with values or a data table.
+    - Red appears only on over-budget bars and always with text.
+    - The trend charts include only months with data. The current month, and months built from exports that end mid-month, are striped and labelled "month to date / partial".
+    - "Biggest changes" shows "New" (no %) when last month was $0.
+    - Large purchases are this month's rows flagged ≥ the threshold.
+63. The app has no dark mode yet, so the charts' colours are light-mode only.
+
 ## Open questions
 Questions about specific rows in the private fixtures are raised in the phase reports, not here, so no fixture contents end up in the repo. Resolve them in the app with per-expense decisions or category overrides.

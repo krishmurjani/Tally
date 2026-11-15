@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { currentMonthNY, isMonthKey, monthLabel } from "@/engines/dates";
+import { isMonthKey, monthLabel } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
 import { BudgetText, Usd } from "@/components/money";
-import { MonthPicker } from "@/components/month-picker";
+import { MonthHeader } from "@/components/month-header";
 import { Badge, Card, EmptyState, Stat } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { loadMonthView } from "@/server/month-data";
+import { budgetForMonth } from "@/server/repos/budgets";
+import { BudgetEditor } from "./budget-editor";
 import { AddExpenseButton } from "./expense-form";
 import { NeedsAttention } from "./needs-attention";
 import { ChangesBanner, CloseMonthButton, SourceSwitch, SyncButton } from "./toolbar";
@@ -23,23 +25,20 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
   const owner = await requireOwnerOrRedirect();
   const { month } = await params;
   if (!isMonthKey(month)) notFound();
-  const v = await loadMonthView(getDb(), owner, month);
+  const db = getDb();
+  const [v, budget] = await Promise.all([loadMonthView(db, owner, month), budgetForMonth(db, owner, month)]);
   const closed = v.status === "closed";
   const cats = v.categories.map((c) => ({ id: c.id, name: c.name }));
   const s = v.summary;
   const blockers = (s?.counts.review ?? 0) + (s?.counts.needsCategory ?? 0);
   const change = s?.changeVsPreviousMinor ?? null;
+  const income = v.income.totalMinor;
+  const paychecks = v.income.entries.length;
+  const actuals = s && v.kind !== "none" ? Object.fromEntries(s.byCategory.map((c) => [c.category, c.actualMinor])) : null;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <MonthPicker month={month} basePath="/expenses" current={currentMonthNY()} />
-        <nav className="flex gap-1 rounded-xl border border-line bg-surface p-1 text-sm" aria-label="Expenses views">
-          <span aria-current="page" className="rounded-lg bg-forest-50 px-3 py-2 font-medium text-forest-800">Spending</span>
-          <span className="rounded-lg px-3 py-2 text-faint" title="Phase 5">Income</span>
-          <span className="rounded-lg px-3 py-2 text-faint" title="Phase 5">Insights</span>
-        </nav>
-      </div>
+      <MonthHeader month={month} tab="spending" />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {closed ? <Badge tone="forest">Closed</Badge> : <Badge>Open</Badge>}
@@ -71,7 +70,13 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
         </p>
       )}
 
-      {!v.hasData || !s ? (
+      {v.kind === "summary" && (
+        <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
+          Imported monthly summary — category totals only, no transactions. Syncing or importing detailed data for this month replaces it.
+        </p>
+      )}
+
+      {!s ? (
         <Card title="My spending">
           <EmptyState title="Not recorded">
             Sync this month from Splitwise, switch it to a CSV import, or add an expense by hand.
@@ -84,10 +89,22 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
               <Stat label={v.isCurrentMonth ? "Spent so far" : "Spent"} value={<Usd minor={s.totalMinor} />} hint={<BudgetText status={s.budgetStatus} />} />
             </Card>
             <Card>
-              <Stat label="Income" value="Not recorded" hint="Paychecks arrive in Phase 5" />
+              <Stat
+                label="Income"
+                value={income === null ? "Not recorded" : <Usd minor={income} />}
+                hint={
+                  <Link href={`/expenses/${month}/income`} className="text-forest-700 hover:underline">
+                    {paychecks ? `${paychecks} paycheck${paychecks === 1 ? "" : "s"}` : "Add a paycheck"}
+                  </Link>
+                }
+              />
             </Card>
             <Card>
-              <Stat label="Left over" value="Not recorded" hint="Needs income" />
+              <Stat
+                label="Left over"
+                value={s.leftOverMinor === null ? "Not recorded" : <Usd minor={s.leftOverMinor} className={s.leftOverMinor < 0 ? "text-danger" : ""} />}
+                hint={s.leftOverMinor === null ? "Needs income" : s.leftOverMinor < 0 ? "Spent more than income" : "Income − expenses"}
+              />
             </Card>
             <Card>
               <Stat
@@ -100,9 +117,21 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
 
           <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
             <Card title={`Needs attention${blockers ? ` · ${blockers}` : ""}`}>
-              <NeedsAttention rows={v.rows} pendingDecisions={v.pendingDecisions} categories={cats} month={month} closed={closed} />
+              {v.kind === "summary" ? (
+                <p className="text-sm text-muted">Nothing to review — this month is an imported summary.</p>
+              ) : (
+                <NeedsAttention rows={v.rows} pendingDecisions={v.pendingDecisions} categories={cats} month={month} closed={closed} />
+              )}
             </Card>
-            <Card title="By category" action={<span className="text-xs text-faint">{v.budgetSource === "default" ? "Default budget" : v.budgetSource === "snapshot" ? "Budget at close" : "This month's budget"}</span>}>
+            <Card
+              title="By category"
+              action={
+                <span className="flex items-center gap-2 text-xs text-faint">
+                  {v.budgetSource === "default" ? "Default budget" : v.budgetSource === "snapshot" ? "Budget at close" : "This month's budget"}
+                  {!closed && <BudgetEditor month={month} categories={cats} amounts={budget.amounts} actuals={actuals} source={budget.source} />}
+                </span>
+              }
+            >
               <ul className="space-y-3">
                 {s.byCategory.map((c) => {
                   const pct = c.budgetMinor > 0 ? Math.min(100, Math.round((c.actualMinor / c.budgetMinor) * 100)) : c.actualMinor > 0 ? 100 : 0;
@@ -125,9 +154,11 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
             </Card>
           </div>
 
-          <Card title="Transactions">
-            <Transactions rows={v.rows} categories={cats} month={month} closed={closed} />
-          </Card>
+          {v.kind === "detailed" && (
+            <Card title="Transactions">
+              <Transactions rows={v.rows} categories={cats} month={month} closed={closed} />
+            </Card>
+          )}
         </>
       )}
     </div>

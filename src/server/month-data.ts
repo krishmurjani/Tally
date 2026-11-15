@@ -8,16 +8,20 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { diffSnapshots, makeSnapshot, type MonthSnapshot, type SnapshotDiff } from "@/engines/close";
 import { parseSplitwiseExport, type ParsedExport } from "@/engines/csv/parse";
 import { deriveCsvMonth, type CsvMonthResult } from "@/engines/csv/share";
-import { addMonths, compareMonths, currentMonthNY, type MonthKey } from "@/engines/dates";
+import { addMonths, compareMonths, currentMonthNY, monthBounds, monthOf, monthRange, type MonthKey } from "@/engines/dates";
 import type { DecisionCandidate } from "@/engines/decisions";
 import { NEEDS_CATEGORY } from "@/engines/defaults";
-import { buildMonthRows, summarizeMonth, summarizeTotals, type MonthRow, type MonthSummary } from "@/engines/month";
+import { incomeForMonth } from "@/engines/income";
+import type { SeriesPoint } from "@/engines/insights";
+import { buildMonthRows, categoryTotals, summarizeMonth, summarizeTotals, type MonthRow, type MonthSummary } from "@/engines/month";
 import { applyDecisions } from "@/engines/pipeline";
 import { recurringRowsForMonth } from "@/engines/recurring";
 import { hasMyShare, type LedgerRow } from "@/engines/types";
 import * as schema from "./db/schema";
 import type { Owner } from "./owner-core";
 import { loadDecisions, pinnedMap, type DecisionRecord } from "./repos/decisions";
+import { loadSummaries } from "./repos/history";
+import { listIncome, type IncomeRecord } from "./repos/income";
 import { loadRecurring } from "./repos/recurring";
 import { loadBudgets, loadCategories, loadCategoryRules, loadOverrides, type CategoryInfo } from "./repos/rules";
 
@@ -55,6 +59,9 @@ export interface MonthView {
   version: number | null;
   dataSource: "api" | "csv" | null;
   hasData: boolean;
+  /** detailed = transactions; summary = imported category totals only; none = nothing recorded. */
+  kind: "detailed" | "summary" | "none";
+  income: { totalMinor: number | null; entries: IncomeRecord[] };
   rows: DisplayRow[];
   summary: MonthSummary | null;
   budgetSource: "month" | "default" | "snapshot";
@@ -240,8 +247,9 @@ export async function monthTotal(db: AnyDb, owner: Owner, month: MonthKey): Prom
   const rec = await getMonthRecord(db, owner, month);
   if (rec?.status === "closed" && rec.snapshot) return (rec.snapshot as MonthSnapshot).totalMinor;
   const live = await computeLiveMonth(db, owner, month, rec?.dataSource ?? null);
-  if (!live.hasData) return null;
-  return live.rows.filter((r) => r.result.status === "included").reduce((s, r) => s + r.result.shareMinor, 0);
+  if (live.hasData) return live.rows.filter((r) => r.result.status === "included").reduce((s, r) => s + r.result.shareMinor, 0);
+  const summary = (await loadSummaries(db, owner)).get(month);
+  return summary ? [...summary.values()].reduce((a, b) => a + b, 0) : null;
 }
 
 export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, now = new Date()): Promise<MonthView> {
@@ -257,6 +265,9 @@ export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, no
     .limit(1);
 
   const categoryOrder = live.categories.map((c) => c.name);
+  const { start, end } = monthBounds(month);
+  const incomeEntries = await listIncome(db, owner, { from: start, to: end });
+  const incomeMinor = incomeForMonth(incomeEntries, month).totalMinor;
   const pendingDecisions = live.decisions
     .filter((d) => d.state === "pending" && d.matchSpec && d.matchSpec.date.startsWith(month))
     .map((d) => ({ id: d.id, version: d.version, reason: d.reason, spec: d.matchSpec! }));
@@ -270,6 +281,7 @@ export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, no
     categories: live.categories,
     csv: live.csv,
     lastSyncAt: lastSync?.at ?? null,
+    income: { totalMinor: incomeMinor, entries: incomeEntries },
   };
 
   if (rec?.status === "closed" && rec.snapshot) {
@@ -315,7 +327,7 @@ export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, no
       totals: new Map(Object.entries(snap.categoryTotals)),
       budgets,
       categoryOrder,
-      incomeMinor: null,
+      incomeMinor,
       previousTotalMinor,
       counts: {
         included: count((r) => r.status === "included"),
@@ -327,6 +339,7 @@ export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, no
     });
     return {
       ...base,
+      kind: "detailed",
       status: "closed",
       rows,
       summary,
@@ -336,11 +349,24 @@ export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, no
     };
   }
 
-  const summary = live.hasData
-    ? summarizeMonth({ month, rows: live.rows, budgets: live.budgets, categoryOrder, incomeMinor: null, previousTotalMinor })
-    : null;
+  if (!live.hasData) {
+    const imported = (await loadSummaries(db, owner)).get(month);
+    const zero = { included: 0, excluded: 0, review: 0, needsCategory: 0, large: 0 };
+    return {
+      ...base,
+      kind: imported ? "summary" : "none",
+      status: "open",
+      rows: [],
+      summary: imported ? summarizeTotals({ month, totals: imported, budgets: live.budgets, categoryOrder, incomeMinor, previousTotalMinor, counts: zero }) : null,
+      budgetSource: live.budgetSource,
+      snapshot: null,
+      pendingChanges: null,
+    };
+  }
+  const summary = summarizeMonth({ month, rows: live.rows, budgets: live.budgets, categoryOrder, incomeMinor, previousTotalMinor });
   return {
     ...base,
+    kind: "detailed",
     status: "open",
     rows: live.rows.map((r) => toDisplay(r, live.displayExtras.get(r.key))).sort(sortRows),
     summary,
@@ -356,4 +382,53 @@ export async function closedMonthDiff(db: AnyDb, owner: Owner, month: MonthKey):
   if (rec?.status !== "closed" || !rec.snapshot) return null;
   const { snapshot } = await liveSnapshot(db, owner, month, rec.dataSource);
   return diffSnapshots(rec.snapshot as MonthSnapshot, snapshot);
+}
+
+/**
+ * One point per month that has data (detailed or imported summary), oldest first.
+ * Months with nothing recorded are absent — never zero.
+ */
+export async function monthlySeries(db: AnyDb, owner: Owner, now = new Date()): Promise<SeriesPoint[]> {
+  const current = currentMonthNY(now);
+  const [summaries, monthRecs, income, manual] = await Promise.all([
+    loadSummaries(db, owner),
+    db.select().from(schema.months).where(eq(schema.months.ownerId, owner.id)),
+    listIncome(db, owner),
+    db.select({ month: schema.manualExpenses.month }).from(schema.manualExpenses).where(and(eq(schema.manualExpenses.ownerId, owner.id), isNull(schema.manualExpenses.deletedAt))),
+  ]);
+  const candidates = [...summaries.keys(), ...monthRecs.map((m) => m.month), ...manual.map((m) => m.month), ...income.map((i) => monthOf(i.date))].filter((m) => compareMonths(m, current) <= 0);
+  if (!candidates.length) return [];
+  const first = candidates.sort()[0]!;
+  const recs = new Map(monthRecs.map((m) => [m.month, m]));
+  const out: SeriesPoint[] = [];
+  for (const month of monthRange(first, current)) {
+    const rec = recs.get(month);
+    const incomeMinor = incomeForMonth(income, month).totalMinor;
+    let totals: Map<string, number> | null = null;
+    let kind: SeriesPoint["kind"] = "detailed";
+    let partial = month === current;
+    if (rec?.status === "closed" && rec.snapshot) {
+      totals = new Map(Object.entries((rec.snapshot as MonthSnapshot).categoryTotals));
+    } else {
+      const live = await computeLiveMonth(db, owner, month, rec?.dataSource ?? null);
+      if (live.hasData) {
+        totals = categoryTotals(live.rows);
+        if (live.csv?.partial.some((p) => p.coverage === "mtd")) partial = true;
+      } else if (summaries.has(month)) {
+        totals = summaries.get(month)!;
+        kind = "summary";
+      }
+    }
+    if (!totals && incomeMinor === null) continue;
+    out.push({
+      month,
+      kind,
+      totalMinor: totals ? [...totals.values()].reduce((a, b) => a + b, 0) : 0,
+      byCategory: Object.fromEntries(totals ?? []),
+      incomeMinor,
+      partial,
+      hasSpending: totals !== null,
+    });
+  }
+  return out;
 }
