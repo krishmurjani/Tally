@@ -240,3 +240,70 @@ export function Select({
     </div>
   );
 }
+
+/** Dropdown with a checklist: pick any number of options. Empty selection means "all". */
+export function MultiSelect({
+  values,
+  onChange,
+  options,
+  allLabel,
+  noun,
+  ariaLabel,
+  className = "",
+  menuMinWidth = 220,
+}: {
+  values: string[];
+  onChange: (values: string[]) => void;
+  options: SelectOption[];
+  /** Shown when nothing is picked, e.g. "All categories". */
+  allLabel: string;
+  /** Plural noun for the summary, e.g. "categories" → "3 categories". */
+  noun: string;
+  ariaLabel: string;
+  className?: string;
+  menuMinWidth?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  const picked = options.filter((o) => values.includes(o.value));
+  const toggle = (v: string) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v]);
+  return (
+    <div className={className}>
+      <button
+        ref={ref}
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={`inline-flex h-11 w-full items-center justify-between gap-2 rounded-xl border px-3 text-left text-sm outline-none transition focus-visible:border-forest-600 ${picked.length ? "border-forest-100 bg-forest-50 hover:bg-forest-50" : "border-line bg-surface hover:bg-forest-50/50"}`}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {picked.length === 1 && picked[0]!.dot && <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ background: picked[0]!.dot }} />}
+          <span className="truncate">{picked.length === 0 ? allLabel : picked.length === 1 ? picked[0]!.label : `${picked.length} ${noun}`}</span>
+        </span>
+        <Chevron />
+      </button>
+      <Popover open={open} anchorRef={ref} onClose={close} minWidth={menuMinWidth} label={ariaLabel}>
+        <div role="listbox" aria-multiselectable="true">
+          {options.map((o) => {
+            const on = values.includes(o.value);
+            return (
+              <label key={o.value} role="option" aria-selected={on} className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-forest-50">
+                <input type="checkbox" checked={on} onChange={() => toggle(o.value)} className="size-4 shrink-0 accent-forest-700" />
+                {o.dot && <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ background: o.dot }} />}
+                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        {values.length > 0 && (
+          <button type="button" onClick={() => onChange([])} className="mt-1 w-full rounded-lg border-t border-line px-3 pb-1.5 pt-2.5 text-left text-sm font-medium text-forest-700 hover:underline">
+            Clear selection ({values.length})
+          </button>
+        )}
+      </Popover>
+    </div>
+  );
+}

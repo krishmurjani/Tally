@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Drawer } from "@/components/drawer";
 import { Usd } from "@/components/money";
 import { SaveStatus } from "@/components/save-status";
-import { Popover, Select } from "@/components/select";
+import { MultiSelect, Popover, Select } from "@/components/select";
 import { Badge } from "@/components/ui";
 import { longDate, shortDate } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
@@ -184,9 +184,9 @@ function sortValue(r: DisplayRow, key: SortKey): string | number {
 
 export function Transactions({ rows, categories, month, closed }: { rows: DisplayRow[]; categories: Cat[]; month: string; closed: boolean }) {
   const [q, setQ] = useState("");
-  const [cat, setCat] = useState("");
-  const [group, setGroup] = useState("");
-  const [status, setStatus] = useState("included");
+  const [cat, setCat] = useState<string[]>([]);
+  const [group, setGroup] = useState<string[]>([]);
+  const [status, setStatus] = useState<string[]>(["included"]);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "date", dir: "desc" });
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [cols, setCols] = useState<Record<ColKey, boolean>>(ALL_ON);
@@ -216,9 +216,13 @@ export function Transactions({ rows, categories, month, closed }: { rows: Displa
   const filtered = useMemo(() => {
     const out = rows.filter((r) => {
       if (q && !`${r.description} ${r.group ?? ""} ${r.sourceCategory ?? ""}`.toLowerCase().includes(q.toLowerCase())) return false;
-      if (cat === NEEDS ? r.category !== null || r.status !== "included" : cat && r.category !== cat) return false;
-      if (group && r.group !== group) return false;
-      if (status && r.status !== status) return false;
+      if (cat.length) {
+        const needsCat = r.category === null && r.status === "included";
+        const matches = (r.category !== null && cat.includes(r.category)) || (needsCat && cat.includes(NEEDS));
+        if (!matches) return false;
+      }
+      if (group.length && !(r.group && group.includes(r.group))) return false;
+      if (status.length && !status.includes(r.status)) return false;
       return true;
     });
     const dir = sort.dir === "asc" ? 1 : -1;
@@ -232,7 +236,7 @@ export function Transactions({ rows, categories, month, closed }: { rows: Displa
   const shownTotal = filtered.filter((r) => r.status === "included").reduce((s, r) => s + r.shareMinor, 0);
   const open = rows.find((r) => r.key === openKey) ?? null;
   const field = "h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none transition focus:border-forest-600";
-  const filtersActive = !!(q || cat || group || status !== "included");
+  const filtersActive = !!(q || cat.length || group.length || status.join() !== "included");
 
   const th = (k: SortKey, label: string, right = false) => {
     const active = sort.key === k ? sort.dir : null;
@@ -257,20 +261,24 @@ export function Transactions({ rows, categories, month, closed }: { rows: Displa
           </svg>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search description, group or category" aria-label="Search transactions" className={`${field} pl-10`} />
         </div>
-        <Select
+        <MultiSelect
           ariaLabel="Filter by category"
-          value={cat}
+          values={cat}
           onChange={setCat}
-          options={[{ value: "", label: "All categories" }, ...categories.map((c) => ({ value: c.name, label: c.name, dot: categoryTone(c.name, order).dot })), { value: NEEDS, label: "Needs category" }]}
+          allLabel="All categories"
+          noun="categories"
+          menuMinWidth={240}
+          options={[...categories.map((c) => ({ value: c.name, label: c.name, dot: categoryTone(c.name, order).dot })), { value: NEEDS, label: "Needs category", dot: categoryTone(null, order).dot }]}
         />
-        <Select ariaLabel="Filter by group" value={group} onChange={setGroup} options={[{ value: "", label: "All groups" }, ...groups.map((g) => ({ value: g, label: g }))]} />
-        <Select
+        <MultiSelect ariaLabel="Filter by group" values={group} onChange={setGroup} allLabel="All groups" noun="groups" menuMinWidth={260} options={groups.map((g) => ({ value: g, label: g }))} />
+        <MultiSelect
           ariaLabel="Filter by status"
-          value={status}
+          values={status}
           onChange={setStatus}
+          allLabel="All statuses"
+          noun="statuses"
           options={[
             { value: "included", label: "Included" },
-            { value: "", label: "All statuses" },
             { value: "excluded", label: "Excluded" },
             { value: "review", label: "Needs review" },
           ]}
@@ -285,9 +293,9 @@ export function Transactions({ rows, categories, month, closed }: { rows: Displa
             <button
               onClick={() => {
                 setQ("");
-                setCat("");
-                setGroup("");
-                setStatus("included");
+                setCat([]);
+                setGroup([]);
+                setStatus(["included"]);
               }}
               className="ml-2 font-medium text-forest-700 hover:underline"
             >
