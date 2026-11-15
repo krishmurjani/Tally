@@ -9,5 +9,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     environment: "node",
     globalSetup: ["tests/global-setup.ts"],
+    // DB test files share one throwaway database.
+    fileParallelism: false,
   },
 });

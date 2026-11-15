@@ -5,7 +5,7 @@ Each item is something I decided without an explicit instruction. Mark any you d
 ## Stack
 1. **Auth.js v5 beta** (`next-auth@5.0.0-beta.32`, pinned exactly; confirmed by Krish). JWT sessions, no auth tables.
 2. **pnpm 11**. pnpm blocks dependency build scripts by default; only `esbuild` is allowed (`pnpm-workspace.yaml`), which it needs to install its native binary.
-3. **TypeScript 7.0** (latest stable). If Next's build turns out to be incompatible in Phase 3, the fallback is the latest 6.x, and the change will be noted here.
+3. **TypeScript 7.0** (latest stable). Verified in Phase 3: `next build` (Next 16.4.6) type-checks and builds with it, so no fallback was needed.
 4. **Drizzle ORM 0.45 stable** (1.0 is still a release candidate).
 5. Postgres driver **`pg` (node-postgres)** over a plain `DATABASE_URL`: the same code runs on local Postgres 16, Neon and Vercel, and it supports real transactions.
 
@@ -53,6 +53,16 @@ Each item is something I decided without an explicit instruction. Mark any you d
 30. **Planner affordability**: `available = income − expenses − new savings`. I assume "living expenses" does **not** include the loan payment, so the scheduled payment (converted to USD) plus the monthly extra must fit within what's available.
 31. **Save-first mode**: the lump sum (≤ existing savings − reserve) goes into the HYSA fund at the start along with the monthly extras. Required loan payments continue during the delay. The whole fund is converted and applied on the last delay month; monthly extras go straight to the loan after that. The reserve is never touched.
 32. Lump sum without save-first: applied on the first payment date on/after the start date.
+
+## App, auth & database (Phase 3)
+37. **Sessions**: Auth.js JWT cookie, 30-day lifetime. The `signIn` callback admits only a Google account with `email_verified === true` whose email equals `OWNER_EMAIL` (trimmed, case-insensitive). A missing `OWNER_EMAIL` rejects everyone.
+38. **Two server-side checks**: every signed-in page, server action and route handler calls `requireOwner()`, which re-checks the session email against `OWNER_EMAIL` and then loads the owner row. A test scans the source to enforce this. `proxy.ts` only redirects cookie-less requests to `/signin` and is not relied on.
+39. Server actions go through one wrapper (`ownerAction`): owner check → Zod validation → work. It returns a typed result (`unauthorized` / `conflict` / `invalid` / `not_found` / `server`), so the UI only shows "Saved" after the server confirms. Client retries (3 tries, 0.4 s → 1.2 s backoff) apply only to thrown or network errors, never to a conflict or validation result.
+40. **Seed** (`pnpm seed`) runs in one transaction. Every insert is `ON CONFLICT DO NOTHING` on a unique key or a deterministic seed key, so re-running never duplicates **or overwrites** anything edited since. Pre-seeded decisions start `pending` and are pinned on the first sync.
+41. Default budgets are seeded effective from **2025-01**. "Travel" is seeded as a custom category (no budget) because suggested mappings (Plane, Hotel) point to it.
+42. Postgres CHECK constraints back up the app rules: month keys are `YYYY-MM`; a manual expense's month matches its date; manual expenses are USD; budgets and paychecks are ≥ 0; lender payments are > 0; a paid payment needs a paid date; type `bounce` ⇔ status `bounced`; a closed month needs a snapshot; at most one pinned decision per row.
+43. DB integration tests use a throwaway local database (`tally_test`, or `TEST_DATABASE_URL`). They refuse to run unless the database name contains "test" and the host isn't a cloud provider. They skip loudly if the database is unreachable.
+44. `next.config.ts` sets `agentRules: false`. Next 16.4's `next dev` otherwise writes an `AGENTS.md` into the repo when it detects a coding agent.
 
 ## Open questions
 Questions about specific rows in the private fixtures are raised in the phase reports, not here, so no fixture contents end up in the repo. Resolve them in the app with per-expense decisions or category overrides.
