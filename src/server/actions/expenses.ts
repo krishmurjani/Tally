@@ -14,9 +14,10 @@ import {
   mapSplitwiseCategory,
   resetCategoryOverride,
   setCategoryOverride,
+  setLargeDismissed,
   updateManualExpense,
 } from "../repos/expenses";
-import { acceptChanges, closeMonth, ClosingBlockedError, keepSnapshot, setMonthSource } from "../repos/months";
+import { acceptChanges, closeMonth, ClosingBlockedError, keepSnapshot, reopenMonth, setMonthSource } from "../repos/months";
 import { createSplitwiseClient, SplitwiseAuthError, SplitwiseError } from "../splitwise/client";
 import { SourceConflictError, syncChanges, syncMonth } from "../splitwise/sync";
 import { ownerAction } from "./run";
@@ -168,8 +169,20 @@ export async function acceptChangesAction(input: unknown) {
   return res;
 }
 
+export async function reopenMonthAction(input: unknown) {
+  const res = await ownerAction(z.object({ month: Month, expectedVersion: Version }), input, ({ db, owner, input }) => reopenMonth(db, owner, input));
+  if (res.ok) refresh();
+  return res;
+}
+
 export async function keepSnapshotAction(input: unknown) {
   const res = await ownerAction(z.object({ month: Month, expectedVersion: Version }), input, ({ db, owner, input }) => keepSnapshot(db, owner, input));
+  if (res.ok) refresh();
+  return res;
+}
+
+export async function setLargeDismissedAction(input: unknown) {
+  const res = await ownerAction(z.object({ rowKey: z.string().min(3).max(300), dismissed: z.boolean() }), input, ({ db, owner, input }) => setLargeDismissed(db, owner, input));
   if (res.ok) refresh();
   return res;
 }

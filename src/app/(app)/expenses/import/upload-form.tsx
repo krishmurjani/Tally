@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { SaveStatus, type SaveState } from "@/components/save-status";
+import { useToast } from "@/components/toast";
 import { importCsvAction } from "@/server/actions/expenses";
 import type { ImportResult } from "@/server/repos/csv-import";
 
 export function UploadForm() {
   const [state, setState] = useState<SaveState>({ kind: "idle" });
+  const toast = useToast();
   const [results, setResults] = useState<ImportResult[]>([]);
   return (
     <form
@@ -17,7 +19,9 @@ export function UploadForm() {
           if (res.ok) {
             setResults(res.data);
             const failed = res.data.filter((r) => r.status === "error").length;
+            const done = res.data.filter((r) => r.status === "imported").length;
             setState(failed ? { kind: "failed", message: `${failed} file(s) weren't imported — see below` } : { kind: "saved" });
+            if (done) toast({ text: `Imported ${done} file${done === 1 ? "" : "s"}` });
           } else setState({ kind: "failed", message: res.message });
         } catch {
           setState({ kind: "failed", message: "couldn't reach the server. Nothing was imported." });

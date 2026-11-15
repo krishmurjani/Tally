@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SaveStatus, type SaveState } from "@/components/save-status";
+import { Select } from "@/components/select";
 import { Badge, Card, Stat } from "@/components/ui";
 import { monthLabel } from "@/engines/dates";
 import { planPayoff, requiredMonthlyContribution, usdToInr, effectiveFx, type PlannerBase, type PlannerWarning } from "@/engines/loan/planner";
@@ -193,25 +194,25 @@ export function Planner({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_1fr]">
       <div className="space-y-6">
-        <Card title="Monthly money (USD)" action={<SaveStatus state={save} />}>
+        <Card title="Monthly money (USD)" action={<SaveStatus state={save} showSaved />}>
           <div className="space-y-4">
             <Field label="Income & living expenses from" hint={s.linked ? "Copied from that month when you linked it — later edits there don't change the plan." : "Typed in by hand."}>
-              <select
+              <Select
+                ariaLabel="Income and living expenses source"
                 value={s.linked?.month ?? ""}
-                onChange={(e) => {
-                  const m = months.find((x) => x.month === e.target.value);
+                onChange={(v) => {
+                  const m = months.find((x) => x.month === v);
                   set("linked", m ? { month: m.month, incomeMinor: m.incomeMinor, expensesMinor: m.expensesMinor } : null);
                 }}
-                className="h-11 w-full rounded-xl border border-line bg-surface px-3"
-              >
-                <option value="">Manual values</option>
-                {months.map((m) => (
-                  <option key={m.month} value={m.month}>
-                    {monthLabel(m.month)} · income {m.incomeMinor === null ? "not recorded" : usd(m.incomeMinor)} · spent {m.expensesMinor === null ? "not recorded" : usd(m.expensesMinor)}
-                    {m.partial ? " (partial)" : ""}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "Manual values" },
+                  ...months.map((m) => ({
+                    value: m.month,
+                    label: `${monthLabel(m.month)} · income ${m.incomeMinor === null ? "not recorded" : usd(m.incomeMinor)} · spent ${m.expensesMinor === null ? "not recorded" : usd(m.expensesMinor)}${m.partial ? " (partial)" : ""}`,
+                  })),
+                ]}
+                menuMinWidth={340}
+              />
             </Field>
             {s.linked && <Badge tone="forest">Linked to {monthLabel(s.linked.month)}</Badge>}
             {drift?.changed && (
@@ -232,6 +233,11 @@ export function Planner({
             <p className="rounded-xl bg-canvas px-3 py-2 text-sm">
               Available for the loan: <b>{usd(result.availableForLoanUsdMinor)}</b>/month
               {result.deficitUsdMinor > 0 && <span className="text-danger"> · deficit {usd(result.deficitUsdMinor)}/month</span>}
+              <span className="block text-xs text-muted">
+                {s.contributionMode === "all_available"
+                  ? "All of it goes to the loan (see Strategy)."
+                  : `Not all used — the plan pays the schedule plus a fixed ${usd(s.monthlyExtraUsdMinor)} extra (see Strategy).`}
+              </span>
             </p>
           </div>
         </Card>
@@ -254,13 +260,36 @@ export function Planner({
 
         <Card title="Strategy">
           <div className="space-y-4">
-            <MoneySlider
-              label="Extra each month (on top of the scheduled payment)"
-              valueMinor={s.monthlyExtraUsdMinor}
-              onChange={(m) => set("monthlyExtraUsdMinor", m)}
-              max={Math.max(3000, result.availableForLoanUsdMinor / 100)}
-              hint={`= ${inr(usdToInr(s.monthlyExtraUsdMinor, fx))}/month to the lender.`}
-            />
+            <fieldset className="space-y-2 text-sm">
+              <legend className="mb-1 font-medium">Each month, pay</legend>
+              {(
+                [
+                  ["all_available", "Everything available", "The scheduled payment comes out of it and the rest goes to the loan as extra — the extra shrinks automatically when the EMI starts."],
+                  ["extra", "The schedule plus a fixed extra", "Choose an extra amount; the rest of what's available stays with you."],
+                ] as const
+              ).map(([value, title, hint]) => (
+                <label key={value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${s.contributionMode === value ? "border-forest-600 bg-forest-50" : "border-line"}`}>
+                  <input type="radio" name="contributionMode" value={value} checked={s.contributionMode === value} onChange={() => set("contributionMode", value)} className="mt-1 accent-forest-700" />
+                  <span>
+                    <span className="block font-medium">{title}</span>
+                    <span className="block text-xs text-muted">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            {s.contributionMode === "extra" ? (
+              <MoneySlider
+                label="Extra each month (on top of the scheduled payment)"
+                valueMinor={s.monthlyExtraUsdMinor}
+                onChange={(m) => set("monthlyExtraUsdMinor", m)}
+                max={Math.max(3000, result.availableForLoanUsdMinor / 100)}
+                hint={`= ${inr(usdToInr(s.monthlyExtraUsdMinor, fx))}/month to the lender.`}
+              />
+            ) : (
+              <p className="rounded-xl bg-canvas px-3 py-2 text-sm">
+                First month from the start date: scheduled payment + <b>{usd(result.monthlyExtraUsdMinor)}</b> extra ({inr(result.monthlyExtraInrMinor)}).
+              </p>
+            )}
             <Field label="Start date">
               <input type="date" value={s.startDate} onChange={(e) => e.target.value && set("startDate", e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3" />
             </Field>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatUSD, isParsableMinor, parseMinor } from "@/engines/money";
 import { SaveStatus, type SaveState } from "@/components/save-status";
+import { useToast } from "@/components/toast";
 import { withRetry } from "@/lib/client/retry";
 import { saveLargeThreshold } from "@/server/actions/settings";
 
@@ -11,6 +12,7 @@ export function ThresholdForm({ initialMinor, initialVersion }: { initialMinor: 
   const [version, setVersion] = useState(initialVersion);
   const [saved, setSaved] = useState(initialMinor);
   const [state, setState] = useState<SaveState>({ kind: "idle" });
+  const toast = useToast();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,6 +27,7 @@ export function ThresholdForm({ initialMinor, initialVersion }: { initialMinor: 
         setVersion(res.data.version);
         setSaved(res.data.largeExpenseThresholdMinor);
         setState({ kind: "saved" });
+        toast({ text: "Large-expense threshold saved" });
       } else {
         setState({ kind: "failed", message: res.error === "conflict" ? "changed elsewhere — reload the page" : res.message });
       }

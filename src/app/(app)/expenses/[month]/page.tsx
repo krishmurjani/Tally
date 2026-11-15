@@ -13,7 +13,7 @@ import { budgetForMonth } from "@/server/repos/budgets";
 import { BudgetEditor } from "./budget-editor";
 import { AddExpenseButton } from "./expense-form";
 import { NeedsAttention } from "./needs-attention";
-import { ChangesBanner, CloseMonthButton, SourceSwitch, SyncButton } from "./toolbar";
+import { btnSecondary, ChangesBanner, CloseMonthButton, ReopenMonthButton, SourceSwitch, StatusChip, SyncButton } from "./toolbar";
 import { Transactions } from "./transactions";
 
 export async function generateMetadata({ params }: { params: Promise<{ month: string }> }): Promise<Metadata> {
@@ -38,24 +38,29 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
 
   return (
     <div className="space-y-6">
-      <MonthHeader month={month} tab="spending" />
+      <MonthHeader month={month} tab="spending" badge={<StatusChip closed={closed} monthToDate={v.isCurrentMonth} />} />
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {closed ? <Badge tone="forest">Closed</Badge> : <Badge>Open</Badge>}
-        {v.isCurrentMonth && <Badge tone="warn">Month to date</Badge>}
-        {!closed && <SourceSwitch month={month} source={v.dataSource} />}
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {v.dataSource !== "csv" && <SyncButton month={month} />}
-          {v.dataSource === "csv" && (
-            <Link href="/expenses/import" className="h-11 content-center rounded-xl border border-line bg-surface px-4 text-sm font-medium hover:bg-forest-50">
-              Import CSV
-            </Link>
-          )}
-          {!closed && <AddExpenseButton month={month} categories={cats} />}
-          {!closed && v.hasData && <CloseMonthButton month={month} version={v.version} blockers={blockers} />}
+      <section aria-label="Month actions" className="rounded-card border border-line bg-surface p-3 sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {!closed && <SourceSwitch month={month} source={v.dataSource} />}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {v.dataSource !== "csv" && !closed && <SyncButton month={month} />}
+            {v.dataSource === "csv" && !closed && (
+              <Link href="/expenses/import" className={btnSecondary}>
+                Import CSV files
+              </Link>
+            )}
+            {!closed && <AddExpenseButton month={month} categories={cats} />}
+            {!closed && v.hasData && <CloseMonthButton month={month} version={v.version} blockers={blockers} />}
+            {closed && v.version && <ReopenMonthButton month={month} version={v.version} />}
+          </div>
         </div>
-      </div>
-      {v.lastSyncAt && v.dataSource === "api" && <p className="-mt-4 text-xs text-faint">Last Splitwise sync {v.lastSyncAt.toLocaleString("en-US", { timeZone: "America/New_York" })}</p>}
+        {v.lastSyncAt && v.dataSource === "api" && (
+          <p className="mt-2 text-xs text-faint">Last synced {v.lastSyncAt.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })}</p>
+        )}
+      </section>
 
       {closed && v.pendingChanges && v.version && <ChangesBanner month={month} version={v.version} diff={v.pendingChanges} />}
 
@@ -89,15 +94,27 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
               <Stat label={v.isCurrentMonth ? "Spent so far" : "Spent"} value={<Usd minor={s.totalMinor} />} hint={<BudgetText status={s.budgetStatus} />} />
             </Card>
             <Card>
-              <Stat
-                label="Income"
-                value={income === null ? "Not recorded" : <Usd minor={income} />}
-                hint={
-                  <Link href={`/expenses/${month}/income`} className="text-forest-700 hover:underline">
-                    {paychecks ? `${paychecks} paycheck${paychecks === 1 ? "" : "s"}` : "Add a paycheck"}
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-muted">Income</p>
+                <Link
+                  href={`/expenses/${month}/income`}
+                  aria-label="Add income"
+                  title="Add income"
+                  className="-mr-1.5 -mt-1.5 grid size-9 place-items-center rounded-full border border-line bg-surface text-forest-700 transition hover:bg-forest-50"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                    <path d="M10 4.5v11M4.5 10h11" />
+                  </svg>
+                </Link>
+              </div>
+              <p className={`mt-1 text-2xl font-semibold tracking-tight ${income === null ? "text-faint" : ""}`}>{income === null ? "Not recorded" : <Usd minor={income} />}</p>
+              <p className="mt-1 text-sm text-muted">
+                {paychecks > 0 && (
+                  <Link href={`/expenses/${month}/income`} className="font-medium text-forest-700 hover:underline">
+                    {paychecks} entr{paychecks === 1 ? "y" : "ies"} · view
                   </Link>
-                }
-              />
+                )}
+              </p>
             </Card>
             <Card>
               <Stat
@@ -109,8 +126,30 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
             <Card>
               <Stat
                 label="vs previous month"
-                value={change === null ? "No data" : `${change > 0 ? "+" : change < 0 ? "−" : ""}${formatUSD(Math.abs(change))}`}
-                hint={s.previousTotalMinor === null ? "Previous month not recorded" : `${formatUSD(s.previousTotalMinor)} last month`}
+                value={
+                  change === null ? (
+                    <span className="text-faint">No data</span>
+                  ) : change === 0 ? (
+                    "No change"
+                  ) : (
+                    <span className={`inline-flex items-center gap-1.5 ${change < 0 ? "text-forest-700" : "text-danger"}`}>
+                      <svg aria-hidden="true" viewBox="0 0 20 20" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d={change < 0 ? "M10 4.5v11M5 11l5 5 5-5" : "M10 15.5v-11M5 9l5-5 5 5"} />
+                      </svg>
+                      {formatUSD(Math.abs(change))}
+                    </span>
+                  )
+                }
+                hint={
+                  s.previousTotalMinor === null ? (
+                    "Previous month not recorded"
+                  ) : (
+                    <span>
+                      {change !== null && change !== 0 && <span className={change < 0 ? "font-medium text-forest-700" : "font-medium text-danger"}>{change < 0 ? "Spent less" : "Spent more"} · </span>}
+                      {formatUSD(s.previousTotalMinor)} last month
+                    </span>
+                  )
+                }
               />
             </Card>
           </div>

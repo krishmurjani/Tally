@@ -7,7 +7,10 @@ import { ConflictError, NotFoundError } from "./errors";
 
 type AnyDb = NodePgDatabase<typeof schema>;
 
-export type IncomeRecord = IncomeEntry & { version: number };
+export const INCOME_SOURCES = ["employer", "cash", "gift_family", "gift_card", "other"] as const;
+export type IncomeSource = (typeof INCOME_SOURCES)[number];
+
+export type IncomeRecord = IncomeEntry & { version: number; sourceType: IncomeSource };
 
 const toRecord = (r: typeof schema.incomeEntries.$inferSelect): IncomeRecord => ({
   id: r.id,
@@ -16,6 +19,7 @@ const toRecord = (r: typeof schema.incomeEntries.$inferSelect): IncomeRecord => 
   employer: r.employer,
   note: r.note,
   version: r.version,
+  sourceType: r.sourceType,
 });
 
 export async function listIncome(db: AnyDb, owner: Owner, range: { from?: string; to?: string } = {}): Promise<IncomeRecord[]> {
@@ -41,6 +45,9 @@ async function audit(db: AnyDb, owner: Owner, id: string, action: string, before
 export interface IncomeInput {
   date: string;
   amountMinor: number;
+  /** Defaults to "employer". */
+  sourceType?: IncomeSource;
+  /** Employer name, or an optional label for other sources. */
   employer: string | null;
   note: string | null;
 }
@@ -64,13 +71,13 @@ export async function updateIncome(db: AnyDb, owner: Owner, input: IncomeInput &
   return db.transaction(async (tx) => {
     const { id, expectedVersion, ...values } = input;
     const [prev] = await tx.select().from(schema.incomeEntries).where(and(eq(schema.incomeEntries.id, id), eq(schema.incomeEntries.ownerId, owner.id), isNull(schema.incomeEntries.deletedAt)));
-    if (!prev) throw new NotFoundError("paycheck", id);
+    if (!prev) throw new NotFoundError("income", id);
     const res = await tx
       .update(schema.incomeEntries)
       .set({ ...values, version: expectedVersion + 1, updatedAt: new Date() })
       .where(and(eq(schema.incomeEntries.id, id), eq(schema.incomeEntries.ownerId, owner.id), eq(schema.incomeEntries.version, expectedVersion)))
       .returning();
-    if (!res.length) throw new ConflictError("paycheck", id);
+    if (!res.length) throw new ConflictError("income", id);
     await audit(tx, owner, id, "update", toRecord(prev), values);
     return toRecord(res[0]!);
   });
@@ -83,7 +90,7 @@ export async function deleteIncome(db: AnyDb, owner: Owner, input: { id: string;
       .set({ deletedAt: new Date(), version: input.expectedVersion + 1, updatedAt: new Date() })
       .where(and(eq(schema.incomeEntries.id, input.id), eq(schema.incomeEntries.ownerId, owner.id), eq(schema.incomeEntries.version, input.expectedVersion), isNull(schema.incomeEntries.deletedAt)))
       .returning({ id: schema.incomeEntries.id });
-    if (!res.length) throw new ConflictError("paycheck", input.id);
+    if (!res.length) throw new ConflictError("income", input.id);
     await audit(tx, owner, input.id, "delete", null, null);
   });
 }

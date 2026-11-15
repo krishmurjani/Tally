@@ -7,7 +7,7 @@ import { createCategoryAction } from "@/server/actions/budgets";
 
 export function CategoriesForm({ categories }: { categories: { id: string; name: string; kind: string }[] }) {
   const [name, setName] = useState("");
-  const a = useAction(createCategoryAction);
+  const a = useAction(createCategoryAction, { success: "Category added" });
   return (
     <div className="space-y-4">
       <ul className="flex flex-wrap gap-2 text-sm">

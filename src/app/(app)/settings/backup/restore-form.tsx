@@ -10,8 +10,8 @@ export function RestoreForm() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<RestorePreview | null>(null);
   const [confirm, setConfirm] = useState("");
-  const prev = useAction(previewRestoreAction);
-  const restore = useAction(restoreBackupAction);
+  const prev = useAction(previewRestoreAction, { success: false });
+  const restore = useAction(restoreBackupAction, { success: "Backup restored" });
   const fd = (extra: Record<string, string> = {}) => {
     const f = new FormData();
     const file = fileRef.current?.files?.[0];

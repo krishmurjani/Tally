@@ -16,8 +16,8 @@ function Form({ entry, onDone }: { entry: ReimbursementRecord | null; onDone: ()
   const [date, setDate] = useState(entry?.date ?? todayNY());
   const [amount, setAmount] = useState(entry ? String(entry.amountMinor / 100) : "");
   const [note, setNote] = useState(entry?.note ?? "");
-  const add = useAction(addReimbursementAction);
-  const upd = useAction(updateReimbursementAction);
+  const add = useAction(addReimbursementAction, { success: "Reimbursement recorded" });
+  const upd = useAction(updateReimbursementAction, { success: "Reimbursement updated" });
   const a = entry ? upd : add;
   return (
     <form
@@ -54,7 +54,7 @@ function Form({ entry, onDone }: { entry: ReimbursementRecord | null; onDone: ()
 
 function Row({ r }: { r: ReimbursementRecord }) {
   const [editing, setEditing] = useState(false);
-  const del = useAction(deleteReimbursementAction);
+  const del = useAction(deleteReimbursementAction, { success: "Reimbursement deleted" });
   if (editing) return <li className="py-3"><Form entry={r} onDone={() => setEditing(false)} /></li>;
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">

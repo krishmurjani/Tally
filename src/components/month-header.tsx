@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { currentMonthNY, type MonthKey } from "@/engines/dates";
 import { MonthPicker } from "./month-picker";
 
@@ -9,11 +10,11 @@ const TABS = [
 ] as const;
 
 /** Month picker (always visible in Expenses) + the Spending / Income / Insights tabs. */
-export function MonthHeader({ month, tab }: { month: MonthKey; tab: (typeof TABS)[number]["key"] }) {
+export function MonthHeader({ month, tab, badge }: { month: MonthKey; tab: (typeof TABS)[number]["key"]; badge?: ReactNode }) {
   const suffix = TABS.find((t) => t.key === tab)!.suffix;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <MonthPicker month={month} basePath="/expenses" current={currentMonthNY()} suffix={suffix} />
+      <MonthPicker month={month} basePath="/expenses" current={currentMonthNY()} suffix={suffix} badge={badge} />
       <nav className="flex gap-1 rounded-xl border border-line bg-surface p-1 text-sm" aria-label="Expenses views">
         {TABS.map((t) => (
           <Link

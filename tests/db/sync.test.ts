@@ -6,6 +6,7 @@ import type { ScriptDb } from "@/server/db/connect";
 import { loadMonthView } from "@/server/month-data";
 import { resolveOwner, type Owner } from "@/server/owner-core";
 import { markNotExpense, revokeDecision } from "@/server/repos/decisions";
+import { setLargeDismissed } from "@/server/repos/expenses";
 import { acceptChanges, closeMonth, ClosingBlockedError, keepSnapshot } from "@/server/repos/months";
 import { seed } from "@/server/seed";
 import { syncChanges, syncMonth } from "@/server/splitwise/sync";
@@ -136,6 +137,28 @@ describe.skipIf(!up)("Splitwise sync (DB)", () => {
       await revokeDecision(db, owner, { id: d.id, expectedVersion: d.version });
       expect((await view("2026-09")).rows.find((x) => x.key === "sw:11")!.status).toBe("included");
       await expect(revokeDecision(db, owner, { id: d.id, expectedVersion: d.version })).rejects.toThrow(/changed elsewhere/);
+    });
+  });
+
+  describe("dismissing the Large flag", () => {
+    beforeEach(async () => {
+      sw.expenses.push(makeExpense({ id: 20, description: "Con Edison", myOwed: "102.03", date: "2026-08-23T16:00:00Z" }));
+      await syncMonth(db, owner, sw, "2026-08");
+    });
+    const flags = async () => (await view()).rows.find((x) => x.key === "sw:20")!;
+
+    it("is per row, survives re-sync, can be restored, and never changes totals", async () => {
+      const before = await total();
+      expect((await flags()).flags).toContain("large");
+      await setLargeDismissed(db, owner, { rowKey: "sw:20", dismissed: true });
+      await setLargeDismissed(db, owner, { rowKey: "sw:20", dismissed: true }); // idempotent
+      expect(await flags()).toMatchObject({ flags: expect.not.arrayContaining(["large"]), largeDismissed: true });
+      await syncMonth(db, owner, sw, "2026-08");
+      expect((await flags()).largeDismissed).toBe(true);
+      expect((await view()).rows.find((x) => x.key === "sw:1")!.largeDismissed).toBe(false); // other rows untouched
+      expect(await total()).toBe(before);
+      await setLargeDismissed(db, owner, { rowKey: "sw:20", dismissed: false });
+      expect((await flags()).flags).toContain("large");
     });
   });
 

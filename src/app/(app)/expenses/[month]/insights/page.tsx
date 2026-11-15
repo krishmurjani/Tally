@@ -56,7 +56,7 @@ export default async function InsightsPage({ params }: { params: Promise<{ month
         {trend.some((t) => t.income !== null) ? (
           <IncomeVsExpenses points={trend} />
         ) : (
-          <EmptyState title="No income recorded">Add paychecks on the Income tab to compare income with spending.</EmptyState>
+          <EmptyState title="No income recorded">Add income on the Income tab to compare income with spending.</EmptyState>
         )}
       </Card>
 

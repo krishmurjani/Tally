@@ -7,8 +7,7 @@ import { Card, EmptyState, Stat } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { loadMonthView } from "@/server/month-data";
-import { listIncome } from "@/server/repos/income";
-import { IncomePanel } from "./income-panel";
+import { AddIncomeButton, IncomePanel } from "./income-panel";
 
 export async function generateMetadata({ params }: { params: Promise<{ month: string }> }): Promise<Metadata> {
   const { month } = await params;
@@ -20,10 +19,9 @@ export default async function IncomePage({ params }: { params: Promise<{ month: 
   const { month } = await params;
   if (!isMonthKey(month)) notFound();
   const db = getDb();
-  const [v, all] = await Promise.all([loadMonthView(db, owner, month), listIncome(db, owner)]);
+  const v = await loadMonthView(db, owner, month);
   const income = v.income.totalMinor;
   const spent = v.summary?.totalMinor ?? null;
-  const lastEmployer = [...all].reverse().find((e) => e.employer)?.employer ?? "";
   return (
     <div className="space-y-6">
       <MonthHeader month={month} tab="income" />
@@ -32,7 +30,7 @@ export default async function IncomePage({ params }: { params: Promise<{ month: 
           <Stat
             label="Income"
             value={income === null ? "Not recorded" : <Usd minor={income} />}
-            hint={v.income.entries.length ? `${v.income.entries.length} paycheck${v.income.entries.length === 1 ? "" : "s"} (biweekly months have 2 or 3)` : "No paychecks recorded"}
+            hint={v.income.entries.length ? `${v.income.entries.length} entr${v.income.entries.length === 1 ? "y" : "ies"} this month` : "Nothing recorded"}
           />
         </Card>
         <Card>
@@ -46,13 +44,13 @@ export default async function IncomePage({ params }: { params: Promise<{ month: 
           />
         </Card>
       </div>
-      <Card title="Paychecks">
+      <Card title="Income" action={v.income.entries.length ? <AddIncomeButton month={month} /> : undefined}>
         {v.income.entries.length === 0 && (
           <div className="mb-4">
-            <EmptyState title="Not recorded">Add each take-home paycheck dated in {monthLabel(month)}.</EmptyState>
+            <EmptyState title="Not recorded">Add your paychecks (UNYT, biweekly), cash, gifts or anything else received in {monthLabel(month)}.</EmptyState>
           </div>
         )}
-        <IncomePanel month={month} entries={v.income.entries} lastEmployer={lastEmployer} />
+        <IncomePanel month={month} entries={v.income.entries} />
       </Card>
     </div>
   );

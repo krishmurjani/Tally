@@ -18,7 +18,10 @@ function SignOutButton() {
         await signOut({ redirectTo: "/signin" });
       }}
     >
-      <button type="submit" className="h-10 rounded-lg border border-line px-3 text-sm hover:bg-forest-50">
+      <button type="submit" className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50">
+        <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 4.5H5.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1H8M12 6.5l3.5 3.5-3.5 3.5M15.5 10H8.5" />
+        </svg>
         Sign out
       </button>
     </form>
@@ -37,7 +40,7 @@ const LABELS: Record<string, string> = {
   lenderPayments: "Lender payments",
   reimbursements: "Sister reimbursements",
   splitwiseExpenses: "Splitwise expenses",
-  incomeEntries: "Paychecks",
+  incomeEntries: "Income entries",
 };
 
 export default async function SettingsPage() {

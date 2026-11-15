@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { SaveStatus } from "@/components/save-status";
+import { Select } from "@/components/select";
+import { categoryTone } from "@/lib/category-colors";
 import { monthBounds, todayNY } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
 import { newIdempotencyKey, useAction } from "@/lib/client/use-action";
@@ -39,9 +41,9 @@ export function ExpenseForm({
   const [categoryId, setCategoryId] = useState(editing?.categoryId ?? categories[0]?.id ?? "");
   const [amount, setAmount] = useState(editing ? (editing.amountMinor / 100).toFixed(2) : "");
   const [note, setNote] = useState(editing?.note ?? "");
-  const add = useAction(addManualExpenseAction);
-  const update = useAction(updateManualExpenseAction);
-  const del = useAction(deleteManualExpenseAction);
+  const add = useAction(addManualExpenseAction, { success: "Expense added" });
+  const update = useAction(updateManualExpenseAction, { success: "Expense updated" });
+  const del = useAction(deleteManualExpenseAction, { success: "Expense deleted" });
   const active = editing ? update : add;
   const negative = useMemo(() => amount.trim().startsWith("-"), [amount]);
 
@@ -66,13 +68,7 @@ export function ExpenseForm({
       </label>
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Category</span>
-        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={field}>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <Select ariaLabel="Category" value={categoryId} onChange={setCategoryId} options={categories.map((c) => ({ value: c.id, label: c.name, dot: categoryTone(c.name, categories.map((x) => x.name)).dot }))} />
       </label>
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Amount (USD) — use a minus sign for a refund</span>
@@ -113,8 +109,11 @@ export function AddExpenseButton({ month, categories }: { month: string; categor
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button onClick={() => setOpen(true)} className="h-11 rounded-xl border border-line bg-surface px-4 text-sm font-medium hover:bg-forest-50">
-        + Add expense
+      <button onClick={() => setOpen(true)} className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50">
+        <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <path d="M10 4.5v11M4.5 10h11" />
+        </svg>
+        Add expense
       </button>
       <Drawer open={open} onClose={() => setOpen(false)} title="Add expense">
         {open && <ExpenseForm month={month} categories={categories} editing={null} onDone={() => setOpen(false)} />}

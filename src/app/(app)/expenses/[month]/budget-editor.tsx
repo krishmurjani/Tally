@@ -28,8 +28,8 @@ export function BudgetEditor({
 }) {
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(categories.map((c) => [c.id, toInput(amounts[c.id] ?? 0)])));
-  const save = useAction(saveBudgetAction);
-  const copy = useAction(previousBudgetAction);
+  const save = useAction(saveBudgetAction, { success: "Budget saved" });
+  const copy = useAction(previousBudgetAction, { success: "Copied last month's budget — review and save" });
   const parsed = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, isParsableMinor(values[c.id] || "0") ? parseMinor(values[c.id] || "0") : null])),
     [values, categories],

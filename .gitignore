@@ -7,3 +7,4 @@ fixtures/private/
 *.tsbuildinfo
 next-env.d.ts
 backups/
+.artifacts/

@@ -116,3 +116,16 @@ export function monthLabel(month: MonthKey, style: "long" | "short" = "long"): s
   const name = MONTH_NAMES[m - 1]!;
   return `${style === "short" ? name.slice(0, 3) : name} ${y}`;
 }
+
+const ABBR = ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."];
+
+/** "2026-07-27" → "Jul. 27" (May has no period). */
+export function shortDate(date: IsoDate): string {
+  const [, m, d] = assertIsoDate(date).split("-").map(Number) as [number, number, number];
+  return `${ABBR[m - 1]} ${d}`;
+}
+
+/** "2026-07-30" → "Jul. 30, 2026". */
+export function longDate(date: IsoDate): string {
+  return `${shortDate(date)}, ${date.slice(0, 4)}`;
+}

@@ -48,6 +48,8 @@ export interface DisplayRow {
   flags: string[];
   decision: { id: string; version: number; reason: string | null } | null;
   hasOverride: boolean;
+  /** The row is over the large-expense threshold but the owner dismissed the flag. */
+  largeDismissed: boolean;
   manual: { id: string; version: number; note: string | null; categoryId: string; amountMinor: number } | null;
   splitwiseId: number | null;
 }
@@ -198,6 +200,17 @@ export async function computeLiveMonth(db: AnyDb, owner: Owner, month: MonthKey,
   });
   for (const k of overrides.keys()) extras.set(k, { ...extras.get(k), hasOverride: true });
 
+  // "Large" flags the owner has dismissed row by row.
+  const dismissed = new Set(
+    (await db.select({ k: schema.flagDismissals.rowKey }).from(schema.flagDismissals).where(eq(schema.flagDismissals.ownerId, owner.id))).map((d) => d.k),
+  );
+  for (const r of rows) {
+    if (dismissed.has(r.key) && r.flags.includes("large")) {
+      r.flags = r.flags.filter((f) => f !== "large");
+      extras.set(r.key, { ...extras.get(r.key), largeDismissed: true });
+    }
+  }
+
   return { rows, displayExtras: extras, sourceVersions, csv, hasData, budgets: budgetInfo.budgets, budgetSource: budgetInfo.source, decisions, categories };
 }
 
@@ -223,6 +236,7 @@ function toDisplay(r: MonthRow, extra: Partial<DisplayRow> | undefined): Display
     flags: r.flags,
     decision: extra?.decision ?? null,
     hasOverride: extra?.hasOverride ?? false,
+    largeDismissed: extra?.largeDismissed ?? false,
     manual: extra?.manual ?? null,
     splitwiseId: extra?.splitwiseId ?? null,
   };
@@ -305,6 +319,7 @@ export async function loadMonthView(db: AnyDb, owner: Owner, month: MonthKey, no
             suggestion: null,
             decision: null,
             hasOverride: false,
+            largeDismissed: false,
             manual: null,
             splitwiseId: null,
           }),

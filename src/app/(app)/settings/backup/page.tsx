@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Backup & export" };
 const CSVS = [
   ["expenses", "Expenses by month", "Every row with my share, category, status and reason"],
   ["category-summaries", "Category summaries", "Monthly totals per category (detailed and imported)"],
-  ["income", "Income", "Paychecks"],
+  ["income", "Income", "Paychecks, cash, gifts and other income"],
   ["lender-payments", "Lender payments", "HDFC Credila ledger incl. planned and bounced"],
   ["reimbursements", "Sister reimbursements", "Opening reconciliation and entries"],
   ["projection", "Payoff projection", "Month-by-month schedule from the saved plan (estimate)"],

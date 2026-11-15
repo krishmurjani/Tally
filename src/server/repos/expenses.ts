@@ -64,6 +64,18 @@ export async function mapSplitwiseCategory(db: AnyDb, owner: Owner, input: { spl
   });
 }
 
+/** Dismiss (or bring back) the Large flag on one expense. Idempotent. */
+export async function setLargeDismissed(db: AnyDb, owner: Owner, input: { rowKey: string; dismissed: boolean }) {
+  await db.transaction(async (tx) => {
+    if (input.dismissed) {
+      await tx.insert(schema.flagDismissals).values({ ownerId: owner.id, rowKey: input.rowKey, flag: "large" }).onConflictDoNothing();
+    } else {
+      await tx.delete(schema.flagDismissals).where(and(eq(schema.flagDismissals.ownerId, owner.id), eq(schema.flagDismissals.rowKey, input.rowKey)));
+    }
+    await audit(tx, owner, "flag_dismissal", input.rowKey, input.dismissed ? "dismiss_large" : "restore_large", null, null);
+  });
+}
+
 export interface ManualExpenseInput {
   date: string;
   description: string;

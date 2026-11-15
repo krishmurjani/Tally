@@ -12,8 +12,8 @@ export function HistoryImport() {
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<HistoryPreview | null>(null);
-  const prev = useAction(previewHistoryAction);
-  const imp = useAction(importHistoryAction);
+  const prev = useAction(previewHistoryAction, { success: false });
+  const imp = useAction(importHistoryAction, { success: (d) => `Imported ${d.months} month${d.months === 1 ? "" : "s"} of history` });
   const mismatches = preview?.months.filter((m) => m.matches === false).length ?? 0;
 
   return (

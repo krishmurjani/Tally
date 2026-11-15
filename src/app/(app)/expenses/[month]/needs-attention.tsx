@@ -1,12 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Drawer } from "@/components/drawer";
 import { Usd } from "@/components/money";
 import { Badge } from "@/components/ui";
+import { shortDate } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
 import type { DisplayRow } from "@/server/month-data";
-import { RowDetail, statusLabel } from "./transactions";
+import { useAction } from "@/lib/client/use-action";
+import { setLargeDismissedAction } from "@/server/actions/expenses";
+import { RowDrawer, statusLabel } from "./transactions";
+
+function DismissLarge({ rowKey }: { rowKey: string }) {
+  const a = useAction(setLargeDismissedAction, { success: "Dismissed — you can bring it back from the expense" });
+  return (
+    <button disabled={a.pending} onClick={() => a.run({ rowKey, dismissed: true })} title="This is expected — stop flagging this expense" className="h-9 shrink-0 rounded-lg border border-line px-3 text-sm text-muted hover:bg-forest-50 hover:text-forest-800 disabled:opacity-60">
+      {a.pending ? "…" : "Dismiss"}
+    </button>
+  );
+}
 
 export function NeedsAttention({
   rows,
@@ -35,12 +46,12 @@ export function NeedsAttention({
         {items.map((r) => {
           const s = statusLabel(r);
           return (
-            <li key={r.key}>
-              <button onClick={() => setOpenKey(r.key)} className="flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-forest-50/50">
+            <li key={r.key} className="flex items-center gap-2">
+              <button onClick={() => setOpenKey(r.key)} className="flex min-w-0 flex-1 items-center justify-between gap-3 py-3 text-left hover:bg-forest-50/50">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{r.description}</p>
                   <p className="text-sm text-muted">
-                    {r.date} · {why(r)}
+                    {shortDate(r.date)} · {why(r)}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -48,6 +59,7 @@ export function NeedsAttention({
                   <Usd minor={r.status === "included" ? r.shareMinor : 0} className="font-semibold" />
                 </div>
               </button>
+              {!closed && r.status === "included" && r.flags.includes("large") && !r.flags.includes("needs_category") && <DismissLarge rowKey={r.key} />}
             </li>
           );
         })}
@@ -55,15 +67,13 @@ export function NeedsAttention({
           <li key={d.id} className="py-3">
             <p className="font-medium">Saved decision not matched yet</p>
             <p className="text-sm text-muted">
-              {d.spec.date} “{d.spec.description}” {formatUSD(d.spec.costMinor)}
+              {shortDate(d.spec.date)} “{d.spec.description}” {formatUSD(d.spec.costMinor)}
               {d.spec.group ? ` (${d.spec.group})` : ""} — {d.reason}. It will be matched when this month&apos;s data is synced or imported; if no unique match exists it stays here.
             </p>
           </li>
         ))}
       </ul>
-      <Drawer open={!!open} onClose={() => setOpenKey(null)} title={open?.description ?? ""}>
-        {open && <RowDetail key={open.key} row={open} categories={categories} month={month} closed={closed} onClose={() => setOpenKey(null)} />}
-      </Drawer>
+      <RowDrawer row={open} categories={categories} month={month} closed={closed} onClose={() => setOpenKey(null)} />
     </>
   );
 }

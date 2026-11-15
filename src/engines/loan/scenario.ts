@@ -29,6 +29,8 @@ export const ScenarioSchema = z.object({
   hysaApyPercent: decimal(100),
   startDate: z.string().refine(isIsoDate, "Expected a date"),
   saveFirstMonths: z.number().int().min(0).max(120),
+  /** Plans saved before this option existed default to putting everything available toward the loan. */
+  contributionMode: z.enum(["all_available", "extra"]).default("all_available"),
   targetDate: z.string().refine(isIsoDate).nullable(),
   linked: z
     .object({
@@ -56,6 +58,7 @@ export function defaultScenario(today: IsoDate, annualRatePercent: string): Scen
     hysaApyPercent: PLANNER_DEFAULTS.hysaApyPercent,
     startDate: today,
     saveFirstMonths: 0,
+    contributionMode: "all_available",
     targetDate: null,
     linked: null,
   };

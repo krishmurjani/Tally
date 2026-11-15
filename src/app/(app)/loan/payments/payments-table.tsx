@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Drawer } from "@/components/drawer";
+import { Select } from "@/components/select";
 import { SaveStatus } from "@/components/save-status";
 import { Badge } from "@/components/ui";
 import { todayNY } from "@/engines/dates";
@@ -30,8 +31,8 @@ function PaymentForm({ payment, onDone }: { payment: PaymentRecord | null; onDon
     interest: rupees(payment?.interestMinor ?? null),
     principal: rupees(payment?.principalMinor ?? null),
   });
-  const add = useAction(addPaymentAction);
-  const upd = useAction(updatePaymentAction);
+  const add = useAction(addPaymentAction, { success: "Payment added" });
+  const upd = useAction(updatePaymentAction, { success: "Payment updated" });
   const a = payment ? upd : add;
   const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV((s) => ({ ...s, [k]: e.target.value }));
   return (
@@ -61,21 +62,30 @@ function PaymentForm({ payment, onDone }: { payment: PaymentRecord | null; onDon
         </label>
         <label className="space-y-1">
           <span className="text-muted">Type</span>
-          <select value={v.type} onChange={(e) => setV((s) => ({ ...s, type: e.target.value as typeof s.type, status: e.target.value === "bounce" ? "bounced" : s.status === "bounced" ? "planned" : s.status }))} className={field}>
-            <option value="pmii_emi">PMII/EMI</option>
-            <option value="repayment">Repayment</option>
-            <option value="bounce">Bounce (audit only)</option>
-          </select>
+          <Select
+            ariaLabel="Type"
+            value={v.type}
+            onChange={(t) => setV((s) => ({ ...s, type: t as typeof s.type, status: t === "bounce" ? "bounced" : s.status === "bounced" ? "planned" : s.status }))}
+            options={[
+              { value: "pmii_emi", label: "PMII/EMI" },
+              { value: "repayment", label: "Repayment" },
+              { value: "bounce", label: "Bounce (audit only)" },
+            ]}
+          />
         </label>
         <label className="space-y-1">
           <span className="text-muted">Status</span>
-          <select value={v.status} onChange={set("status")} disabled={v.type === "bounce"} className={field}>
-            <option value="planned">Planned</option>
-            <option value="paid">Paid</option>
-            <option value="bounced" disabled={v.type !== "bounce"}>
-              Bounced
-            </option>
-          </select>
+          <Select
+            ariaLabel="Status"
+            value={v.status}
+            disabled={v.type === "bounce"}
+            onChange={(st) => setV((s) => ({ ...s, status: st as typeof s.status }))}
+            options={[
+              { value: "planned", label: "Planned" },
+              { value: "paid", label: "Paid" },
+              { value: "bounced", label: "Bounced", disabled: v.type !== "bounce" },
+            ]}
+          />
         </label>
         <label className="space-y-1">
           <span className="text-muted">Paid date {v.status === "paid" ? "(required)" : ""}</span>
@@ -83,11 +93,17 @@ function PaymentForm({ payment, onDone }: { payment: PaymentRecord | null; onDon
         </label>
         <label className="space-y-1">
           <span className="text-muted">Paid by</span>
-          <select value={v.payer ?? "krish"} onChange={set("payer")} disabled={v.type === "bounce"} className={field}>
-            <option value="krish">Me</option>
-            <option value="sister">Sister</option>
-            <option value="other">Other</option>
-          </select>
+          <Select
+            ariaLabel="Paid by"
+            value={v.payer ?? "krish"}
+            disabled={v.type === "bounce"}
+            onChange={(pv) => setV((s) => ({ ...s, payer: pv as typeof s.payer }))}
+            options={[
+              { value: "krish", label: "Me" },
+              { value: "sister", label: "Sister" },
+              { value: "other", label: "Other" },
+            ]}
+          />
         </label>
         <label className="space-y-1">
           <span className="text-muted">Reference</span>
@@ -123,7 +139,7 @@ function PaymentForm({ payment, onDone }: { payment: PaymentRecord | null; onDon
 
 function MarkPaid({ p }: { p: PaymentRecord }) {
   const [date, setDate] = useState(todayNY());
-  const a = useAction(markPaymentPaidAction);
+  const a = useAction(markPaymentPaidAction, { success: "Marked as paid" });
   return (
     <span className="flex flex-wrap items-center gap-1">
       <input type="date" aria-label="Paid on" value={date} onChange={(e) => setDate(e.target.value)} className="h-9 rounded-lg border border-line px-2 text-sm" />
@@ -140,28 +156,39 @@ export function PaymentsTable({ payments }: { payments: PaymentRecord[] }) {
   const [editing, setEditing] = useState<PaymentRecord | "new" | null>(null);
   const [payer, setPayer] = useState("");
   const [status, setStatus] = useState("");
-  const del = useAction(deletePaymentAction);
+  const del = useAction(deletePaymentAction, { success: "Payment deleted" });
   const rows = payments
     .map((p) => ({ p, st: effectiveStatus(p, today) }))
     .filter(({ p, st }) => (!payer || (p.payer ?? "none") === payer) && (!status || st === status))
     .sort((a, b) => (a.p.dueDate < b.p.dueDate ? 1 : -1));
-  const sel = "h-11 rounded-xl border border-line bg-surface px-3 text-sm";
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <select aria-label="Filter by payer" value={payer} onChange={(e) => setPayer(e.target.value)} className={sel}>
-          <option value="">Everyone</option>
-          <option value="krish">Me</option>
-          <option value="sister">Sister</option>
-          <option value="other">Other</option>
-        </select>
-        <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)} className={sel}>
-          <option value="">All statuses</option>
-          <option value="paid">Paid</option>
-          <option value="planned">Planned</option>
-          <option value="overdue">Overdue</option>
-          <option value="bounced">Bounced</option>
-        </select>
+        <Select
+          ariaLabel="Filter by payer"
+          value={payer}
+          onChange={setPayer}
+          className="w-44"
+          options={[
+            { value: "", label: "Everyone" },
+            { value: "krish", label: "Me" },
+            { value: "sister", label: "Sister" },
+            { value: "other", label: "Other" },
+          ]}
+        />
+        <Select
+          ariaLabel="Filter by status"
+          value={status}
+          onChange={setStatus}
+          className="w-44"
+          options={[
+            { value: "", label: "All statuses" },
+            { value: "paid", label: "Paid" },
+            { value: "planned", label: "Planned" },
+            { value: "overdue", label: "Overdue" },
+            { value: "bounced", label: "Bounced" },
+          ]}
+        />
         <button onClick={() => setEditing("new")} className="ml-auto h-11 rounded-xl border border-line bg-surface px-4 text-sm font-medium hover:bg-forest-50">
           + Add payment
         </button>

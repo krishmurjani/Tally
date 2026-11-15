@@ -51,7 +51,7 @@ export async function exportCsv(db: AnyDb, owner: Owner, kind: ExportKind): Prom
     }
     case "income": {
       const entries = await listIncome(db, owner);
-      return toCsv(["date", "take_home_usd", "employer", "note"], entries.map((e) => [e.date, amt(e.amountMinor), e.employer, e.note]), [2, 3]);
+      return toCsv(["date", "amount_usd", "source_type", "source_name", "note"], entries.map((e) => [e.date, amt(e.amountMinor), e.sourceType, e.employer, e.note]), [3, 4]);
     }
     case "lender-payments": {
       const { payments } = await loadLoanLedgers(db, owner);

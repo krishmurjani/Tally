@@ -118,7 +118,7 @@ describe.skipIf(!up)("backup & restore (DB)", () => {
     expect(exp.split("\n")[0]).toBe("month,date,description,category,my_share_usd,full_cost,currency,group,status,reason,source,month_status");
     expect(exp).toContain(`"'=cmd, ""quoted"""`);
     expect(exp).toContain("2026-08,2026-08-01,Rent,Rent,875.00");
-    expect(await exportCsv(db, owner, "income")).toContain("2026-08-07,2500.00,Acme,");
+    expect(await exportCsv(db, owner, "income")).toContain("2026-08-07,2500.00,employer,Acme,");
     const pays = await exportCsv(db, owner, "lender-payments");
     expect(pays).toContain("2025-12-11,,9033.00,,bounce,bounced,bounced");
     const proj = await exportCsv(db, owner, "projection");

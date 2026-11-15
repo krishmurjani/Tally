@@ -119,6 +119,9 @@ Each item is something I decided without an explicit instruction. Mark any you d
 68. **Linking** the planner to a recorded month copies that month's income and spending into the plan at link time. If the month later changes, the planner shows the difference and an "Update the plan" button; it never updates silently. A missing value in the linked month counts as $0 and is called out.
 69. Planner "living expenses" are meant to exclude the loan payment (see 30). A linked month's spending is its whole Tally total, which doesn't include the loan payment, since the loan isn't an expense category.
 
+76. **Planner contribution mode** (changed after Krish's first use, 2026-11-15). Default: **put everything available toward the loan**. Each month's scheduled payment comes out of "available" and the rest goes in as extra, computed in rupees, so the extra shrinks automatically when the EMI starts. The alternative, "schedule plus a fixed extra", is the earlier behaviour. Plans saved before this option default to "everything available". This supersedes the fixed-extra default in 30/31: in save-first mode, each month's available-minus-scheduled goes into the fund.
+77. The planner's "payment below interest" warning only counts months from the start date. Past recorded months (e.g. Oct–Nov 2026) are still marked in the month table but don't raise the warning, since the plan can't change them.
+
 ## Backup, export, PWA, polish (Phase 7)
 70. **Backup format**: `{ format: "tally-backup", version: 1, exportedAt, owner, tables }`. It covers every owner table, including raw Splitwise JSON, imported CSV text and the audit log. Sync-run history is not backed up, and each expense's link to its sync run is cleared. The web download is gzip-compressed (`.json.gz`) to stay under Vercel's 4.5 MB response limit; `pnpm backup` has no limit.
 71. **Restore** always runs a dry run first, with per-table counts of new / identical / different / only-in-database rows. Then either:
@@ -132,8 +135,13 @@ Each item is something I decided without an explicit instruction. Mark any you d
 
 ## Not yet verified (overall)
 - **Real Google sign-in.** The allowlist, session checks and owner guard are tested with test sessions, but no real Google OAuth round trip has been made, and the CSP `form-action` allowance for Google hasn't been exercised by a real sign-in.
-- **Splitwise API** (needs `SPLITWISE_API_KEY`): whether the API accepts the key as `Bearer`; whether deleted expenses are returned; whether API dates converted to New York time match the CSV dates (`pnpm compare <month>`); whether the API owed_share totals match the CSV for August/September.
-- **September 2026 full-month target ($1,916.51)**: the CSV exports end mid-month, so this needs a later export or the API.
+- ~~Splitwise API checks~~ **Verified 2026-11-15 against the live API:**
+  - The API key is accepted as `Authorization: Bearer <key>`.
+  - `get_expenses` **does** return deleted expenses (with `deleted_at` set); they're excluded as "Deleted in Splitwise".
+  - API dates converted to America/New_York matched the CSV dates for **every** matched row in Aug and Sep 2026 (no `DATE` differences). Date-only entries arrive as midnight New York time (`T04:00:00Z` in EDT).
+  - API owed_share matched the CSV net-balance share on every matched row except one non-group split with friends who have no pairwise export. There the API is right (see 14).
+  - August 2026: the API is $46.22 above $1,821.67 because of one expense created *after* the 2026-09-16 exports and backdated into August. The rules agree; the target predates that entry.
+- **September 2026 full-month target ($1,916.51)**: the API gives $2,017.55 (rent and phone included, both Varun entries excluded), +$101.04. No creation-time cutoff reproduces the target. Open question for Krish; the rules haven't been tuned to match.
 - **Interactive UI in a real browser**: sliders, drawers, charts, autosave and file uploads. Pages were verified over HTTP on dev and production servers, and the actions/repositories by tests, but not by clicking through (the Chrome extension couldn't reach localhost).
 - **Vercel + Neon deployment.** Not deployed; the README has the steps.
 - **Historical workbooks**: no real summary file imported yet.

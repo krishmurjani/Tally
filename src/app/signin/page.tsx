@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { signIn } from "@/auth";
+import { Logo } from "@/components/logo";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -15,7 +16,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-12">
       <div className="rounded-card border border-line bg-surface p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <span aria-hidden className="grid size-10 place-items-center rounded-xl bg-forest-700 text-lg font-semibold text-white">T</span>
+          <Logo size={44} />
           <div>
             <h1 className="text-xl font-semibold">Tally</h1>
             <p className="text-sm text-muted">Private — owner only</p>

@@ -114,3 +114,17 @@ export async function setMonthSource(db: AnyDb, owner: Owner, input: { month: Mo
     if (input.source === "csv") await refreshCsvMonths(tx, owner);
   });
 }
+
+/** Open a closed month again. Discards its snapshot; its budget snapshot (month_budgets) is kept. */
+export async function reopenMonth(db: AnyDb, owner: Owner, input: { month: MonthKey; expectedVersion: number }) {
+  await db.transaction(async (tx) => {
+    const rec = await closedRecord(tx, owner, input.month, input.expectedVersion);
+    const res = await tx
+      .update(schema.months)
+      .set({ status: "open", closedAt: null, snapshot: null, snapshotHash: null, pendingChanges: null, keptDiffHash: null, version: rec.version + 1, updatedAt: new Date() })
+      .where(and(eq(schema.months.id, rec.id), eq(schema.months.version, rec.version)))
+      .returning({ id: schema.months.id });
+    if (!res.length) throw new ConflictError("month", input.month);
+    await audit(tx, owner, input.month, "reopen", { totalMinor: (rec.snapshot as { totalMinor?: number } | null)?.totalMinor ?? null });
+  });
+}

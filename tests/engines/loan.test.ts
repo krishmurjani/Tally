@@ -304,3 +304,85 @@ describe("Planner scenario", () => {
     expect(plannerInputs(s).monthlyExpensesUsdMinor).toBe(182167);
   });
 });
+
+describe("Planner: put everything available toward the loan", () => {
+  const base: PlannerBase = {
+    openingBalanceMinor: inr(10_00_000),
+    asOf: "2026-09-11",
+    paymentDay: 11,
+    phases: [
+      { from: "2026-10-11", kind: "partial_interest", paymentMinor: inr(10_000) },
+      { from: "2027-03-11", kind: "emi", paymentMinor: inr(50_000) },
+    ],
+    recordedPayments: [],
+    maxMonths: 600,
+  };
+  const inputs: PlannerInputs = {
+    monthlyIncomeUsdMinor: 300_000,
+    monthlyExpensesUsdMinor: 200_000,
+    monthlyNewSavingsUsdMinor: 0,
+    existingSavingsUsdMinor: 0,
+    emergencyReserveUsdMinor: 0,
+    lumpSumUsdMinor: 0,
+    monthlyExtraUsdMinor: 0,
+    annualRatePercent: "12",
+    fxInrPerUsd: "90",
+    transferFeePercent: "0",
+    hysaApyPercent: "3.4",
+    startDate: "2026-09-12",
+    saveFirstMonths: 0,
+  };
+
+  it("each month pays available − scheduled as extra, so the total paid = everything available", () => {
+    const r = planPayoff(base, { ...inputs, contributionMode: "all_available" });
+    const first = r.plan.periods[0]!;
+    // $1,000 available → ₹90,000; scheduled ₹10,000 → extra ₹80,000
+    expect(first).toMatchObject({ requiredMinor: inr(10_000), extraMinor: inr(80_000), paymentMinor: inr(90_000) });
+    const emi = r.plan.periods.find((p) => p.date === "2027-03-11")!;
+    expect(emi).toMatchObject({ requiredMinor: inr(50_000), extraMinor: inr(40_000) }); // extra shrinks when the EMI starts
+    expect(r.monthlyExtraUsdMinor).toBe(88_889); // ₹80,000 ÷ 90 = $888.89
+    expect(r.plan.monthsToPayoff!).toBeLessThan(r.baseline.monthsToPayoff!);
+  });
+
+  it("the fixed-extra mode ignores what's available (old behaviour)", () => {
+    const r = planPayoff(base, { ...inputs, contributionMode: "extra", monthlyExtraUsdMinor: 0 });
+    expect(r.plan.monthsToPayoff).toBe(r.baseline.monthsToPayoff);
+  });
+
+  it("when less is available than the schedule needs: no extra, and an affordability warning", () => {
+    const r = planPayoff(base, { ...inputs, monthlyIncomeUsdMinor: 205_000, contributionMode: "all_available" });
+    expect(r.plan.periods[0]!.extraMinor).toBe(0);
+    const late = planPayoff({ ...base, phases: [{ from: "2026-10-11", kind: "emi", paymentMinor: inr(50_000) }] }, { ...inputs, monthlyIncomeUsdMinor: 205_000, contributionMode: "all_available" });
+    expect(late.warnings.map((w) => w.code)).toContain("unaffordable");
+  });
+
+  it("save-first puts available − scheduled into the fund each month", () => {
+    const r = planPayoff(base, { ...inputs, contributionMode: "all_available", saveFirstMonths: 3 });
+    expect(r.saveFirst!.months.map((m) => m.contributionUsdMinor)).toEqual([88_889, 88_889, 88_889]);
+    expect(r.plan.periods.slice(0, 2).every((p) => p.extraMinor === 0)).toBe(true);
+  });
+
+  it("plans saved before this option default to everything available", async () => {
+    const { ScenarioSchema, defaultScenario } = await import("@/engines/loan/scenario");
+    const { contributionMode: _m, ...old } = defaultScenario("2026-11-15", "11.55");
+    expect(ScenarioSchema.parse(old).contributionMode).toBe("all_available");
+  });
+});
+
+describe("Planner warnings only cover the plan's own months", () => {
+  it("past recorded months below interest don't trigger the negative-amortization warning", () => {
+    const s = LOAN_FACTS.schedule;
+    const base: PlannerBase = { openingBalanceMinor: s.openingBalanceMinor, asOf: s.asOf, paymentDay: s.paymentDay, phases: [...s.phases], recordedPayments: [...SEED_LENDER_PAYMENTS], maxMonths: 600 };
+    const big: PlannerInputs = {
+      monthlyIncomeUsdMinor: 800_000, monthlyExpensesUsdMinor: 300_000, monthlyNewSavingsUsdMinor: 0, existingSavingsUsdMinor: 0, emergencyReserveUsdMinor: 0,
+      lumpSumUsdMinor: 0, monthlyExtraUsdMinor: 0, annualRatePercent: "11.55", fxInrPerUsd: "90", transferFeePercent: "0.5", hysaApyPercent: "3.4",
+      startDate: "2026-11-15", saveFirstMonths: 0, contributionMode: "all_available",
+    };
+    const r = planPayoff(base, big);
+    expect(r.plan.periods.slice(0, 2).every((p) => p.warnings.includes("below_interest"))).toBe(true); // Oct/Nov 2026, recorded
+    expect(r.warnings.map((w) => w.code)).not.toContain("negative_amortization");
+    expect(r.plan.payoffDate).toBe("2028-10-11");
+    const scheduleOnly = planPayoff(base, { ...big, contributionMode: "extra" });
+    expect(scheduleOnly.warnings.find((w) => w.code === "negative_amortization")).toMatchObject({ months: 9 }); // Dec 2026 – Aug 2027
+  });
+});

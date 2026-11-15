@@ -29,6 +29,7 @@ export const BACKUP_TABLES = {
   csvImports: schema.csvImports,
   expenseDecisions: schema.expenseDecisions,
   categoryOverrides: schema.categoryOverrides,
+  flagDismissals: schema.flagDismissals,
   usdConfirmations: schema.usdConfirmations,
   manualExpenses: schema.manualExpenses,
   recurringRules: schema.recurringRules,

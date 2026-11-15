@@ -4,7 +4,7 @@
  */
 import { addMonths, dateInMonth, monthOf, type IsoDate } from "../dates";
 import { applyRatio, div, mul, parseRatio, ratio, ratioToNumber, sub, type Ratio } from "../rational";
-import { amortize, firstPaymentDate, type AmortizeInput, type AmortizeResult, type ExtraPayment } from "./amortize";
+import { amortize, firstPaymentDate, phaseOn, type AmortizeInput, type AmortizeResult, type ExtraPayment } from "./amortize";
 
 export interface PlannerInputs {
   monthlyIncomeUsdMinor: number;
@@ -13,8 +13,14 @@ export interface PlannerInputs {
   existingSavingsUsdMinor: number;
   emergencyReserveUsdMinor: number;
   lumpSumUsdMinor: number;
-  /** Additional monthly contribution to the loan, USD (on top of the scheduled payment). */
+  /** Additional monthly contribution to the loan, USD (on top of the scheduled payment). Used in "extra" mode. */
   monthlyExtraUsdMinor: number;
+  /**
+   * "all_available": everything available each month goes to the loan — the scheduled payment comes out of it
+   * and the rest is extra (so the extra shrinks automatically when the EMI starts).
+   * "extra": the scheduled payment plus a fixed monthlyExtraUsdMinor. Default "extra".
+   */
+  contributionMode?: "all_available" | "extra";
   annualRatePercent: string;
   fxInrPerUsd: string;
   transferFeePercent: string;
@@ -65,7 +71,10 @@ export interface PlannerResult {
   effectiveInrPerUsd: string;
   lumpSumUsdMinor: number;
   lumpSumInrMinor: number;
+  /** Extra (beyond the schedule) in the first projected month, INR. */
   monthlyExtraInrMinor: number;
+  /** Extra in the first projected month, USD. */
+  monthlyExtraUsdMinor: number;
   plan: AmortizeResult;
   baseline: AmortizeResult;
   interestSavedInrMinor: number;
@@ -144,9 +153,16 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
       allowedUsdMinor: maxLump,
     });
   }
-  const extraUsd = Math.max(0, inputs.monthlyExtraUsdMinor);
+  const mode = inputs.contributionMode ?? "extra";
+  const fixedExtraUsd = Math.max(0, inputs.monthlyExtraUsdMinor);
+  const inrToUsd = div(ratio(1), fx);
+  const scheduledInrOn = (d: IsoDate) => phaseOn(base.phases, d)?.paymentMinor ?? 0;
+  /** Extra beyond the scheduled payment for the payment due on `d`. */
+  const extraUsdOn = (d: IsoDate) => (mode === "extra" ? fixedExtraUsd : Math.max(0, availableUsdMinor - applyRatio(scheduledInrOn(d), inrToUsd)));
+  const availableInr = usdToInr(availableUsdMinor, fx);
+  // In rupees directly (no USD round trip), so available = scheduled + extra to the paisa.
+  const extraInrOn = (d: IsoDate) => (mode === "extra" ? usdToInr(fixedExtraUsd, fx) : Math.max(0, availableInr - scheduledInrOn(d)));
   const lumpInr = usdToInr(lumpUsd, fx);
-  const extraInr = usdToInr(extraUsd, fx);
   const horizon = base.maxMonths ?? 600;
 
   const baseline = amortize(baseInput(base, inputs, []));
@@ -162,17 +178,18 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
     const months: FundMonth[] = dates.map((d) => {
       const opening = fund;
       const interest = Math.round(opening * r);
-      fund = opening + interest + extraUsd;
-      contributed += extraUsd;
+      const contribution = extraUsdOn(d);
+      fund = opening + interest + contribution;
+      contributed += contribution;
       interestTotal += interest;
-      return { date: d, openingUsdMinor: opening, interestUsdMinor: interest, contributionUsdMinor: extraUsd, closingUsdMinor: fund };
+      return { date: d, openingUsdMinor: opening, interestUsdMinor: interest, contributionUsdMinor: contribution, closingUsdMinor: fund };
     });
     const appliedOn = dates.at(-1)!;
     const converted = usdToInr(fund, fx);
     const after = dateInMonth(addMonths(monthOf(appliedOn), 1), base.paymentDay);
     extras = [
       { date: appliedOn, amountMinor: converted, label: "Saved fund converted and applied" },
-      ...paymentDates(base, after, horizon).map((d) => ({ date: d, amountMinor: extraInr, label: "Monthly extra" })),
+      ...paymentDates(base, after, horizon).map((d) => ({ date: d, amountMinor: extraInrOn(d), label: "Monthly extra" })),
     ].filter((e) => e.amountMinor > 0);
     saveFirst = {
       months,
@@ -188,7 +205,7 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
     const dates = paymentDates(base, inputs.startDate, horizon);
     extras = [
       ...(lumpInr > 0 ? [{ date: dates[0]!, amountMinor: lumpInr, label: "Lump sum" }] : []),
-      ...(extraInr > 0 ? dates.map((d) => ({ date: d, amountMinor: extraInr, label: "Monthly extra" })) : []),
+      ...dates.map((d) => ({ date: d, amountMinor: extraInrOn(d), label: "Monthly extra" })).filter((e) => e.amountMinor > 0),
     ];
   }
 
@@ -199,11 +216,13 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
     saveFirst.leftoverInrMinor = applied ? Math.min(applied.clippedMinor, saveFirst.convertedInrMinor) : saveFirst.convertedInrMinor;
   }
 
-  if (plan.belowInterestMonths > 0) {
+  // Only months the plan controls (from the start date on); past recorded months aren't actionable.
+  const belowInterest = plan.periods.filter((p) => p.date >= inputs.startDate && p.warnings.includes("below_interest")).length;
+  if (belowInterest > 0) {
     warnings.push({
       code: "negative_amortization",
-      message: `${plan.belowInterestMonths} month(s) where the payment is below the interest — the balance grows.`,
-      months: plan.belowInterestMonths,
+      message: `${belowInterest} month(s) from the start date where the payment is below the interest — the balance grows.`,
+      months: belowInterest,
     });
   }
   if (!plan.paidOff) warnings.push({ code: "not_paid_off", message: "The loan isn't paid off within the projection horizon." });
@@ -212,7 +231,7 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
   const firstProjected = plan.periods.find((p) => p.date >= inputs.startDate && p.requiredSource === "schedule");
   if (firstProjected) {
     const requiredUsd = applyRatio(firstProjected.requiredMinor, div(ratio(1), fx));
-    const needed = requiredUsd + extraUsd;
+    const needed = requiredUsd + (mode === "extra" ? fixedExtraUsd : 0);
     if (needed > availableUsdMinor) {
       warnings.push({
         code: "unaffordable",
@@ -229,7 +248,8 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
     effectiveInrPerUsd: ratioToFixed(fx),
     lumpSumUsdMinor: lumpUsd,
     lumpSumInrMinor: lumpInr,
-    monthlyExtraInrMinor: extraInr,
+    monthlyExtraInrMinor: extraInrOn(paymentDates(base, inputs.startDate, 1)[0]!),
+    monthlyExtraUsdMinor: extraUsdOn(paymentDates(base, inputs.startDate, 1)[0]!),
     plan,
     baseline,
     interestSavedInrMinor: baseline.totalInterestMinor - plan.totalInterestMinor,
@@ -249,7 +269,7 @@ export interface RequiredContribution {
 export function requiredMonthlyContribution(base: PlannerBase, inputs: PlannerInputs, targetDate: IsoDate): RequiredContribution {
   const { availableUsdMinor } = availableForLoan(inputs);
   const finishesBy = (extra: number) => {
-    const r = planPayoff(base, { ...inputs, monthlyExtraUsdMinor: extra, saveFirstMonths: 0 });
+    const r = planPayoff(base, { ...inputs, contributionMode: "extra", monthlyExtraUsdMinor: extra, saveFirstMonths: 0 });
     return r.plan.paidOff && r.plan.payoffDate! <= targetDate;
   };
   if (finishesBy(0)) return { monthlyExtraUsdMinor: 0, affordable: true, availableUsdMinor };

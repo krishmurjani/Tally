@@ -1,0 +1,1 @@
+ALTER TABLE "income_entries" ADD COLUMN "source_type" text DEFAULT 'employer' NOT NULL;

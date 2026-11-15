@@ -253,6 +253,19 @@ export const categoryOverrides = pgTable(
   (t) => [uniqueIndex("category_overrides_unique").on(t.ownerId, t.rowKey)],
 );
 
+/** "Seen, this is expected": hides the Large flag on one row. Per row only — never a keyword rule. */
+export const flagDismissals = pgTable(
+  "flag_dismissals",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    rowKey: text("row_key").notNull(),
+    flag: text("flag", { enum: ["large"] }).notNull().default("large"),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("flag_dismissals_unique").on(t.ownerId, t.rowKey, t.flag)],
+);
+
 export const usdConfirmations = pgTable(
   "usd_confirmations",
   {
@@ -368,6 +381,8 @@ export const incomeEntries = pgTable(
     date: day("date").notNull(),
     amountMinor: money("amount_minor").notNull(),
     currency: text("currency").notNull().default("USD"),
+    /** Where the money came from. For "employer" the name is stored in `employer`. */
+    sourceType: text("source_type", { enum: ["employer", "cash", "gift_family", "gift_card", "other"] }).notNull().default("employer"),
     employer: text("employer"),
     note: text("note"),
     idempotencyKey: text("idempotency_key").notNull(),
