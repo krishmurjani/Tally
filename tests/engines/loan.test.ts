@@ -257,3 +257,50 @@ describe("Payoff planner", () => {
     expect(codes).toContain("not_paid_off");
   });
 });
+
+describe("Planner performance (runs in the browser on slider changes)", () => {
+  it("full seeded schedule + required-contribution search finishes quickly", () => {
+    const s = LOAN_FACTS.schedule;
+    const base: PlannerBase = { openingBalanceMinor: s.openingBalanceMinor, asOf: s.asOf, paymentDay: s.paymentDay, phases: [...s.phases], recordedPayments: [...SEED_LENDER_PAYMENTS], maxMonths: 600 };
+    const inputs: PlannerInputs = {
+      monthlyIncomeUsdMinor: 600_000,
+      monthlyExpensesUsdMinor: 200_000,
+      monthlyNewSavingsUsdMinor: 50_000,
+      existingSavingsUsdMinor: 1_000_000,
+      emergencyReserveUsdMinor: 600_000,
+      lumpSumUsdMinor: 200_000,
+      monthlyExtraUsdMinor: 100_000,
+      annualRatePercent: "11.55",
+      fxInrPerUsd: "90",
+      transferFeePercent: "0.5",
+      hysaApyPercent: "3.4",
+      startDate: "2026-11-15",
+      saveFirstMonths: 0,
+    };
+    const t0 = performance.now();
+    const plan = planPayoff(base, inputs);
+    const req = requiredMonthlyContribution(base, inputs, "2031-12-31");
+    const ms = performance.now() - t0;
+    expect(plan.plan.paidOff).toBe(true);
+    expect(plan.plan.monthsToPayoff!).toBeLessThan(plan.baseline.monthsToPayoff!);
+    expect(req.monthlyExtraUsdMinor).not.toBeNull();
+    expect(ms).toBeLessThan(1500);
+  });
+});
+
+describe("Planner scenario", () => {
+  it("defaults are valid and use the spec's fx/fee/APY", async () => {
+    const { defaultScenario, ScenarioSchema } = await import("@/engines/loan/scenario");
+    const s = defaultScenario("2026-11-15", "11.55");
+    expect(ScenarioSchema.parse(s)).toMatchObject({ fxInrPerUsd: "90", transferFeePercent: "0.5", hysaApyPercent: "3.4" });
+    expect(ScenarioSchema.safeParse({ ...s, annualRatePercent: "abc" }).success).toBe(false);
+  });
+  it("linked month values are a snapshot; drift is detected, never applied silently", async () => {
+    const { defaultScenario, linkDrift, plannerInputs } = await import("@/engines/loan/scenario");
+    const s = { ...defaultScenario("2026-11-15", "11.55"), monthlyIncomeUsdMinor: 1, linked: { month: "2026-08", incomeMinor: 250000, expensesMinor: 182167 } };
+    expect(plannerInputs(s)).toMatchObject({ monthlyIncomeUsdMinor: 250000, monthlyExpensesUsdMinor: 182167 });
+    expect(linkDrift(s.linked, { incomeMinor: 250000, expensesMinor: 182167 }).changed).toBe(false);
+    expect(linkDrift(s.linked, { incomeMinor: 250000, expensesMinor: 190000 }).changed).toBe(true);
+    expect(plannerInputs(s).monthlyExpensesUsdMinor).toBe(182167);
+  });
+});

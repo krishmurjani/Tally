@@ -1,0 +1,4 @@
+ALTER TABLE "lender_payments" ADD COLUMN "interest_minor" bigint;--> statement-breakpoint
+ALTER TABLE "lender_payments" ADD COLUMN "principal_minor" bigint;--> statement-breakpoint
+CREATE UNIQUE INDEX "payoff_scenarios_name" ON "payoff_scenarios" USING btree ("owner_id","loan_id","name");--> statement-breakpoint
+ALTER TABLE "lender_payments" ADD CONSTRAINT "lender_payments_allocation" CHECK (("lender_payments"."interest_minor" is null and "lender_payments"."principal_minor" is null) or ("lender_payments"."interest_minor" >= 0 and "lender_payments"."principal_minor" >= 0 and "lender_payments"."interest_minor" + "lender_payments"."principal_minor" = "lender_payments"."amount_minor"));

@@ -15,6 +15,13 @@
       "when": 1794721492453,
       "tag": "0001_csv_content_kept_diff",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794727457880,
+      "tag": "0002_loan_allocation_scenario",
+      "breakpoints": true
     }
   ]
 }

@@ -117,7 +117,9 @@ export function firstPaymentDate(asOf: IsoDate, paymentDay: number): IsoDate {
 export function amortize(input: AmortizeInput): AmortizeResult {
   const maxMonths = input.maxMonths ?? 600;
   const recorded = input.recordedPayments ?? [];
-  const extras = input.extras ?? [];
+  // Extras sorted once and consumed with a cursor: O(periods + extras), not O(periods × extras).
+  const extras = [...(input.extras ?? [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  let extraCursor = 0;
   const periods: Period[] = [];
   let balance = input.openingBalanceMinor;
   let prev = input.asOf;
@@ -155,7 +157,13 @@ export function amortize(input: AmortizeInput): AmortizeResult {
       required = phase?.paymentMinor ?? 0;
       requiredSource = "schedule";
     }
-    const extra = date < input.projectFrom ? 0 : extras.filter((e) => e.date > prev && e.date <= date).reduce((s, e) => s + e.amountMinor, 0);
+    let windowExtras = 0;
+    while (extraCursor < extras.length && extras[extraCursor]!.date <= date) {
+      if (extras[extraCursor]!.date > prev) windowExtras += extras[extraCursor]!.amountMinor;
+      extraCursor++;
+    }
+    // Extras dated before the projection start are never applied (they'd be recorded payments instead).
+    const extra = date < input.projectFrom ? 0 : windowExtras;
     const intended = required + extra;
     const due = balance + interest;
     const payment = Math.min(intended, due);

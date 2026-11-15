@@ -103,5 +103,21 @@ Each item is something I decided without an explicit instruction. Mark any you d
     - Large purchases are this month's rows flagged ≥ the threshold.
 63. The app has no dark mode yet, so the charts' colours are light-mode only.
 
+## Loan screens (Phase 6)
+64. **Lender payments** can carry an optional interest/principal allocation (both or neither, summing to the amount). Without one a payment is shown as "Allocation: not entered" and never labelled interest.
+    - Planned → paid is an explicit "Mark paid" with a date.
+    - A planned payment past its due date shows as **overdue** but still doesn't count.
+    - Bounces are type `bounce` ⇔ status `bounced`, kept for audit and excluded everywhere.
+65. **Rate changes** are added with an effective date, and earlier rates stay in force for earlier periods. The planner's rate slider is a *scenario* input that starts at the current recorded rate. It doesn't record a real rate change; those go on the Overview tab.
+66. **Estimated balance today** (Overview) rolls the opening balance forward month by month using recorded payments only, and is labelled "estimate, not lender ledger".
+67. **Planner**:
+    - It runs in the browser on every change, using the same engine as the tests.
+    - The scenario autosaves about 0.9 s after the last change, versioned; a save from a stale tab gets a conflict message. There's one saved plan per loan.
+    - "Future interest" and "Interest saved" count months from the start date on. The schedule-only baseline uses the same recorded payments and rate.
+    - "Required monthly contribution" assumes extras start on the start date with no save-first period.
+    - A warning shows when the schedule-only model's final month differs from the lender's. With the seeded data the model finishes Oct 2038 (final ≈ ₹545) against the lender's Sep 2038.
+68. **Linking** the planner to a recorded month copies that month's income and spending into the plan at link time. If the month later changes, the planner shows the difference and an "Update the plan" button; it never updates silently. A missing value in the linked month counts as $0 and is called out.
+69. Planner "living expenses" are meant to exclude the loan payment (see 30). A linked month's spending is its whole Tally total, which doesn't include the loan payment, since the loan isn't an expense category.
+
 ## Open questions
 Questions about specific rows in the private fixtures are raised in the phase reports, not here, so no fixture contents end up in the repo. Resolve them in the app with per-expense decisions or category overrides.

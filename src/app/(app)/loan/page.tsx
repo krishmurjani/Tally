@@ -1,36 +1,130 @@
 import type { Metadata } from "next";
-import { paidTotals } from "@/engines/loan/ledger";
+import Link from "next/link";
+import { todayNY } from "@/engines/dates";
+import { amortize } from "@/engines/loan/amortize";
+import { effectiveStatus, paidTotals } from "@/engines/loan/ledger";
 import { sisterLedger } from "@/engines/loan/sister";
 import { formatINR } from "@/engines/money";
 import { Badge, Card, Stat } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
-import { loadLoanLedgers } from "@/server/repos/loan";
+import { loadLoanFacts, loadLoanLedgers } from "@/server/repos/loan";
+import { RateForm } from "./rate-form";
 
 export const metadata: Metadata = { title: "Loan" };
 
+function Provenance({ label }: { label: string }) {
+  const verified = label === "lender statement";
+  return <Badge tone={verified ? "forest" : "warn"}>{label}</Badge>;
+}
+
 export default async function LoanPage() {
   const owner = await requireOwnerOrRedirect();
-  const { payments, reimbursements } = await loadLoanLedgers(getDb(), owner);
+  const db = getDb();
+  const [{ loan, rates, disbursements, schedule }, { payments, reimbursements }] = await Promise.all([loadLoanFacts(db, owner), loadLoanLedgers(db, owner)]);
+  const today = todayNY();
   const totals = paidTotals(payments);
   const sister = sisterLedger(payments, reimbursements);
+  const disbursed = disbursements.reduce((s, d) => s + d.amountMinor, 0);
+  // Estimated balance today: opening balance rolled forward with recorded payments only.
+  const toToday = amortize({
+    openingBalanceMinor: schedule.openingBalanceMinor,
+    asOf: schedule.asOf,
+    paymentDay: schedule.paymentDay,
+    rates: rates.map((r) => ({ effectiveFrom: r.effectiveFrom, annualPercent: r.annualPercent })),
+    phases: schedule.phases,
+    projectFrom: "9999-12-31",
+    recordedPayments: payments,
+    maxMonths: 600,
+  }).periods.filter((p) => p.date <= today);
+  const balanceToday = toToday.at(-1)?.closingMinor ?? schedule.openingBalanceMinor;
+  const next = payments.filter((p) => p.status === "planned").sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))[0];
+  const overdue = payments.filter((p) => effectiveStatus(p, today) === "overdue");
+  const currentRate = [...rates].filter((r) => r.effectiveFrom <= today).at(-1) ?? rates[0];
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">HDFC Credila loan</h1>
-        <Badge tone="warn">Planner, ledgers &amp; projections arrive in Phase 6</Badge>
+      {overdue.length > 0 && (
+        <p role="alert" className="rounded-xl border border-danger/30 bg-danger-50 px-4 py-3 text-sm text-danger">
+          {overdue.length} planned payment{overdue.length === 1 ? " is" : "s are"} past due and not marked paid.{" "}
+          <Link href="/loan/payments" className="font-medium underline">
+            Review payments
+          </Link>
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <Stat label="Estimated balance today" value={formatINR(balanceToday, { decimals: "never" })} hint="Estimate, not lender ledger" />
+        </Card>
+        <Card>
+          <Stat label="Next payment" value={next ? formatINR(next.amountMinor) : "None planned"} hint={next ? `Due ${next.dueDate} · planned, not paid` : undefined} />
+        </Card>
+        <Card>
+          <Stat label="Owed to sister" value={formatINR(sister.owedMinor)} hint={sister.creditMinor ? `Credit ${formatINR(sister.creditMinor)}` : `Funded ${formatINR(sister.fundedMinor)}`} />
+        </Card>
+        <Card>
+          <Stat label="Paid to lender so far" value={formatINR(totals.totalPaidMinor)} hint={`${formatINR(totals.byPayer.krish)} by me · ${formatINR(totals.byPayer.sister)} by sister`} />
+        </Card>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <Stat label="Paid to lender" value={formatINR(totals.totalPaidMinor)} hint={`${formatINR(totals.byPayer.krish)} by me · ${formatINR(totals.byPayer.sister)} by sister`} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card title="Repayment schedule" action={<Provenance label={schedule.provenance} />}>
+          <dl className="grid grid-cols-[11rem_1fr] gap-x-3 gap-y-2 text-sm">
+            <dt className="text-muted">Issued</dt>
+            <dd>{schedule.issuedOn}</dd>
+            <dt className="text-muted">Opening outstanding</dt>
+            <dd>
+              {formatINR(schedule.openingBalanceMinor)} as of {schedule.asOf}
+            </dd>
+            {schedule.phases.map((p) => (
+              <div key={p.from} className="contents">
+                <dt className="text-muted">{p.label ?? p.kind}</dt>
+                <dd>
+                  {formatINR(p.paymentMinor)}/month from {p.from}
+                </dd>
+              </div>
+            ))}
+            <dt className="text-muted">Partial interest through</dt>
+            <dd>{schedule.partialInterestThrough ?? "—"}</dd>
+            <dt className="text-muted">Final payment</dt>
+            <dd>{schedule.finalPaymentMonth ?? "—"}</dd>
+          </dl>
+          <p className="mt-3 text-xs text-faint">Payments aren&apos;t labelled as interest unless the lender&apos;s allocation is entered on the payment.</p>
         </Card>
-        <Card>
-          <Stat label="Owed to sister" value={formatINR(sister.owedMinor)} hint={`Funded ${formatINR(sister.fundedMinor)} · reimbursed ${formatINR(sister.reimbursedMinor)}`} />
-        </Card>
-        <Card>
-          <Stat label="Planned (not paid)" value={formatINR(totals.plannedMinor)} hint={`${totals.bouncedCount} bounced payment kept for audit, excluded`} />
+        <Card title="Interest rate" action={<Badge tone="warn">floating</Badge>}>
+          <ul className="space-y-1 text-sm">
+            {rates.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <b>{r.annualPercent}%</b> from {r.effectiveFrom}
+                  {r.note ? <span className="text-muted"> · {r.note}</span> : null}
+                </span>
+                <Provenance label={r.provenance} />
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-sm text-muted">Current: {currentRate ? `${currentRate.annualPercent}%` : "—"}</p>
+          <div className="mt-3">
+            <RateForm />
+          </div>
         </Card>
       </div>
+
+      <Card title="Sanction & disbursements" action={<Provenance label="lender statement" />}>
+        <p className="mb-3 text-sm">
+          Sanctioned {formatINR(loan.sanctionedMinor)} <span className="text-muted">({loan.provenance})</span> · Disbursed {formatINR(disbursed)}
+        </p>
+        <ul className="divide-y divide-line/70 text-sm">
+          {disbursements.map((d) => (
+            <li key={d.id} className="flex justify-between py-1.5">
+              <span>
+                {d.date} <span className="text-muted">· {d.note}</span>
+              </span>
+              <span className="tabular-nums">{formatINR(d.amountMinor)}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   );
 }

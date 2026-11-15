@@ -490,6 +490,9 @@ export const lenderPayments = pgTable(
     status: text("status", { enum: ["paid", "planned", "overdue", "bounced"] }).notNull(),
     reference: text("reference"),
     note: text("note"),
+    /** Optional lender allocation. Without it a payment is never labelled "interest". */
+    interestMinor: money("interest_minor"),
+    principalMinor: money("principal_minor"),
     idempotencyKey: text("idempotency_key").notNull(),
     deletedAt: ts("deleted_at"),
     createdAt: created(),
@@ -498,6 +501,10 @@ export const lenderPayments = pgTable(
   },
   (t) => [
     uniqueIndex("lender_payments_idem").on(t.ownerId, t.idempotencyKey),
+    check(
+      "lender_payments_allocation",
+      sql`(${t.interestMinor} is null and ${t.principalMinor} is null) or (${t.interestMinor} >= 0 and ${t.principalMinor} >= 0 and ${t.interestMinor} + ${t.principalMinor} = ${t.amountMinor})`,
+    ),
     check("lender_payments_positive", sql`${t.amountMinor} > 0`),
     check("lender_payments_paid_date", sql`${t.status} <> 'paid' or ${t.paidDate} is not null`),
     check("lender_payments_bounce", sql`(${t.type} = 'bounce') = (${t.status} = 'bounced')`),
@@ -523,17 +530,21 @@ export const sisterReimbursements = pgTable(
   (t) => [uniqueIndex("sister_reimbursements_idem").on(t.ownerId, t.idempotencyKey), check("sister_reimbursements_positive", sql`${t.amountMinor} > 0`)],
 );
 
-export const payoffScenarios = pgTable("payoff_scenarios", {
-  id: id(),
-  ownerId: ownerId(),
-  loanId: loanRef(),
-  name: text("name").notNull().default("My plan"),
-  inputs: jsonb("inputs").notNull(),
-  linkedMonth: text("linked_month"),
-  createdAt: created(),
-  updatedAt: updated(),
-  version: version(),
-});
+export const payoffScenarios = pgTable(
+  "payoff_scenarios",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    loanId: loanRef(),
+    name: text("name").notNull().default("My plan"),
+    inputs: jsonb("inputs").notNull(),
+    linkedMonth: text("linked_month"),
+    createdAt: created(),
+    updatedAt: updated(),
+    version: version(),
+  },
+  (t) => [uniqueIndex("payoff_scenarios_name").on(t.ownerId, t.loanId, t.name)],
+);
 
 export const auditLog = pgTable(
   "audit_log",
