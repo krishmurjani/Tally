@@ -13,6 +13,14 @@ export class NotFoundError extends Error {
   }
 }
 
+/** An error whose message is safe and useful to show as-is (e.g. "Resolve 2 items before closing"). */
+export class UserFacingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserFacingError";
+  }
+}
+
 /** Result shape returned by server actions to the UI (never "saved" unless the server confirmed it). */
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }

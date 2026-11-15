@@ -64,5 +64,25 @@ Each item is something I decided without an explicit instruction. Mark any you d
 43. DB integration tests use a throwaway local database (`tally_test`, or `TEST_DATABASE_URL`). They refuse to run unless the database name contains "test" and the host isn't a cloud provider. They skip loudly if the database is unreachable.
 44. `next.config.ts` sets `agentRules: false`. Next 16.4's `next dev` otherwise writes an `AGENTS.md` into the repo when it detects a coding agent.
 
+## Splitwise sync & Expenses (Phase 4)
+45. **Sync window**: a month is fetched with `dated_after` = 1st − 1 day and `dated_before` = last day + 2 days (UTC). Each expense's month is then set from its New York date. Expenses from neighbouring months fetched in the margin are stored under their own month.
+46. **Paging**: `limit=100`, `offset` increasing until an **empty** page, so a server-side cap on `limit` can't truncate a month. Duplicate ids across pages are dropped. There's a hard stop at 500 pages.
+47. **Backoff**: on 429, wait `Retry-After` seconds (max 120) if given, otherwise 1 s, 2 s, 4 s, 8 s, 16 s. 5xx and network errors use the same backoff. 401/403 fail immediately.
+48. All sync network calls happen first, then everything is written in **one transaction**: upsert, derived fields, missing detection, decision pinning, closed-month flags. A failed sync records its error and writes nothing.
+49. Stored Splitwise rows keep the share-rule result **without** "Not an expense" decisions. Decisions are applied when a month is shown, so undo never needs a recompute. A confirmed USD amount re-derives the row from its stored raw JSON.
+50. **Missing detection**: after a full-month sync, a stored row of that month that wasn't returned and has no `deleted_at` goes to Needs review ("No longer returned by Splitwise"). If it comes back later it's recomputed normally.
+51. **Change detection** (`updated_after`) starts from the last successful sync's start time minus 5 minutes of overlap. It runs after every month sync.
+52. **Closed months** are always displayed from their snapshot. Editing is disabled on a closed month. "Changed since close" compares the live data with the snapshot, using the expense's Splitwise `updated_at` as its version. "Accept" recomputes the snapshot but keeps the budget the month closed with. "Keep snapshot" dismisses that exact diff (by fingerprint), and a later, different change is flagged again.
+53. **Closing is blocked** while anything is in Needs review or needs a category. Closing a month that used default budgets freezes them into that month's budget, so changing a default never rewrites it.
+54. A month shows data only once it has a data source (Splitwise sync or CSV) or a manual expense. Until then it shows "Not recorded", and recurring rent/phone rows aren't added to it.
+55. **CSV import** stores each file's text and works out a month's rows when the month is shown, so pairwise combination can span files. Identical files are deduped by SHA-256. A *different* file with the same source and export date is rejected ("which one is right?"). A month uses CSV only when its source is set to CSV, and sync refuses to touch a CSV month until it's switched back.
+56. Non-group API expenses are labelled "Non-group (names)" from the other participants' Splitwise names. Pre-seeded decisions match the group by name (letters and digits only, case-insensitive).
+57. Server-action request bodies are limited to 4 MB (CSV uploads), under Vercel's 4.5 MB cap. Each CSV file may be at most 2 MB.
+
+### Not yet verified (needs SPLITWISE_API_KEY)
+- That the API key is accepted as `Authorization: Bearer <key>`. dev.splitwise.com lists API-key auth but shows no header example.
+- Whether `get_expenses` returns deleted expenses. It's not documented; both cases are handled, and an unreturned expense goes to review.
+- That each expense's API `date`, converted to America/New_York, matches the CSV dates. `pnpm compare <month>` lists any `DATE` mismatches row by row.
+
 ## Open questions
 Questions about specific rows in the private fixtures are raised in the phase reports, not here, so no fixture contents end up in the repo. Resolve them in the app with per-expense decisions or category overrides.

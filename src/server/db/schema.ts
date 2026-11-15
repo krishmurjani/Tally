@@ -202,34 +202,11 @@ export const csvImports = pgTable(
     exportDate: day("export_date"),
     sha256: text("sha256").notNull(),
     rowCount: integer("row_count").notNull(),
+    /** The file's text. Rows are derived at read time, because pairwise combination spans files. */
+    content: text("content").notNull(),
     importedAt: created(),
   },
   (t) => [uniqueIndex("csv_imports_owner_sha").on(t.ownerId, t.sha256)],
-);
-
-export const csvRows = pgTable(
-  "csv_rows",
-  {
-    id: id(),
-    ownerId: ownerId(),
-    importId: uuid("import_id")
-      .notNull()
-      .references(() => csvImports.id, { onDelete: "cascade" }),
-    rowKey: text("row_key").notNull(),
-    month: text("month").notNull(),
-    date: day("date").notNull(),
-    description: text("description").notNull(),
-    sourceCategory: text("source_category"),
-    groupLabel: text("group_label"),
-    costMinor: money("cost_minor").notNull(),
-    currency: text("currency").notNull(),
-    status: rowStatus().notNull(),
-    reason: text("reason").notNull(),
-    reasonText: text("reason_text").notNull(),
-    shareMinor: money("share_minor").notNull(),
-    derivation: jsonb("derivation").$type<string[]>().notNull(),
-  },
-  (t) => [uniqueIndex("csv_rows_import_key").on(t.importId, t.rowKey), index("csv_rows_owner_month").on(t.ownerId, t.month)],
 );
 
 /** "Not an expense" decisions. Per expense only — no keyword rules exist. */
@@ -370,6 +347,8 @@ export const months = pgTable(
     snapshot: jsonb("snapshot"),
     snapshotHash: text("snapshot_hash"),
     pendingChanges: jsonb("pending_changes"),
+    /** Hash of a change-diff Krish chose to ignore ("keep snapshot"), so it isn't re-flagged. */
+    keptDiffHash: text("kept_diff_hash"),
     createdAt: created(),
     updatedAt: updated(),
     version: version(),

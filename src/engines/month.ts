@@ -90,7 +90,23 @@ export function categoryTotals(rows: MonthRow[]): Map<string, number> {
 }
 
 export function summarizeMonth(input: SummarizeInput): MonthSummary {
-  const totals = categoryTotals(input.rows);
+  const count = (pred: (r: MonthRow) => boolean) => input.rows.filter(pred).length;
+  return summarizeTotals({
+    ...input,
+    totals: categoryTotals(input.rows),
+    counts: {
+      included: count((r) => r.result.status === "included"),
+      excluded: count((r) => r.result.status === "excluded"),
+      review: count((r) => r.result.status === "review"),
+      needsCategory: count((r) => r.flags.includes("needs_category")),
+      large: count((r) => r.flags.includes("large")),
+    },
+  });
+}
+
+/** Summary from category totals alone (used for closed months, from their snapshot). */
+export function summarizeTotals(input: Omit<SummarizeInput, "rows"> & { totals: Map<string, number>; counts: MonthSummary["counts"] }): MonthSummary {
+  const totals = input.totals;
   const order = [...input.categoryOrder];
   for (const c of [...totals.keys(), ...input.budgets.keys()]) if (!order.includes(c)) order.push(c);
 
@@ -105,7 +121,6 @@ export function summarizeMonth(input: SummarizeInput): MonthSummary {
   const totalMinor = [...totals.values()].reduce((a, b) => a + b, 0);
   const budgetTotalMinor = [...input.budgets.values()].reduce((a, b) => a + b, 0);
   const lo = leftOver(input.incomeMinor, totalMinor);
-  const count = (pred: (r: MonthRow) => boolean) => input.rows.filter(pred).length;
 
   return {
     month: input.month,
@@ -117,12 +132,6 @@ export function summarizeMonth(input: SummarizeInput): MonthSummary {
     leftOverMinor: lo.leftOverMinor,
     previousTotalMinor: input.previousTotalMinor,
     changeVsPreviousMinor: input.previousTotalMinor === null ? null : totalMinor - input.previousTotalMinor,
-    counts: {
-      included: count((r) => r.result.status === "included"),
-      excluded: count((r) => r.result.status === "excluded"),
-      review: count((r) => r.result.status === "review"),
-      needsCategory: count((r) => r.flags.includes("needs_category")),
-      large: count((r) => r.flags.includes("large")),
-    },
+    counts: input.counts,
   };
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireOwner } from "../auth-guard";
 import { getDb, type Db } from "../db/client";
 import { UnauthorizedError, type Owner } from "../owner-core";
-import { ConflictError, NotFoundError, type ActionResult } from "../repos/errors";
+import { ConflictError, NotFoundError, UserFacingError, type ActionResult } from "../repos/errors";
 
 /**
  * Wraps every server action: owner check FIRST, then input validation, then the work.
@@ -28,6 +28,7 @@ export async function ownerAction<I, T>(
   } catch (e) {
     if (e instanceof ConflictError) return { ok: false, error: "conflict", message: e.message };
     if (e instanceof NotFoundError) return { ok: false, error: "not_found", message: e.message };
+    if (e instanceof UserFacingError) return { ok: false, error: "invalid", message: e.message };
     console.error(e);
     return { ok: false, error: "server", message: "Something went wrong on the server. Nothing was saved." };
   }

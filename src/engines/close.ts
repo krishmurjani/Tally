@@ -17,8 +17,12 @@ export interface SnapshotRow {
   shareMinor: number;
   status: RowStatus;
   reasonText: string;
-  /** Source fingerprint (e.g. Splitwise updated_at / raw hash). A change here alone is reported too. */
+  /** Source fingerprint (e.g. Splitwise updated_at). A change here alone is reported too. */
   sourceVersion: string | null;
+  // display-only (not compared)
+  source?: string;
+  group?: string | null;
+  flags?: string[];
 }
 
 export interface MonthSnapshot {
@@ -26,6 +30,8 @@ export interface MonthSnapshot {
   month: MonthKey;
   totalMinor: number;
   categoryTotals: Record<string, number>;
+  /** The month's budget at close (category → minor). */
+  budgets?: Record<string, number>;
   rows: SnapshotRow[];
 }
 
@@ -40,10 +46,18 @@ export function toSnapshotRow(r: MonthRow, sourceVersion: string | null = null):
     status: r.result.status,
     reasonText: r.result.reasonText,
     sourceVersion,
+    source: r.source,
+    group: r.group,
+    flags: [...r.flags],
   };
 }
 
-export function makeSnapshot(month: MonthKey, rows: MonthRow[], sourceVersions: Map<string, string> = new Map()): MonthSnapshot {
+export function makeSnapshot(
+  month: MonthKey,
+  rows: MonthRow[],
+  sourceVersions: Map<string, string> = new Map(),
+  budgets?: Map<string, number>,
+): MonthSnapshot {
   const totals = categoryTotals(rows);
   const snapRows = rows.map((r) => toSnapshotRow(r, sourceVersions.get(r.key) ?? null)).sort((a, b) => a.key.localeCompare(b.key));
   return {
@@ -51,6 +65,7 @@ export function makeSnapshot(month: MonthKey, rows: MonthRow[], sourceVersions: 
     month,
     totalMinor: [...totals.values()].reduce((a, b) => a + b, 0),
     categoryTotals: Object.fromEntries([...totals.entries()].sort(([a], [b]) => a.localeCompare(b))),
+    ...(budgets ? { budgets: Object.fromEntries([...budgets.entries()].sort(([a], [b]) => a.localeCompare(b))) } : {}),
     rows: snapRows,
   };
 }
@@ -68,6 +83,16 @@ export interface SnapshotDiff {
 }
 
 const COMPARED: (keyof SnapshotRow)[] = ["date", "description", "category", "costMinor", "shareMinor", "status", "reasonText", "sourceVersion"];
+
+/** Stable fingerprint of a diff, so a change Krish chose to ignore isn't re-flagged. */
+export function diffFingerprint(d: SnapshotDiff): string {
+  const pick = (r: SnapshotRow) => [r.key, r.shareMinor, r.status, r.category, r.sourceVersion];
+  return JSON.stringify({
+    a: d.added.map(pick),
+    r: d.removed.map(pick),
+    c: d.changed.map((c) => [c.key, c.fields.map((f) => [f.field, f.after])]),
+  });
+}
 
 export function diffSnapshots(before: MonthSnapshot, after: MonthSnapshot): SnapshotDiff {
   const b = new Map(before.rows.map((r) => [r.key, r]));
