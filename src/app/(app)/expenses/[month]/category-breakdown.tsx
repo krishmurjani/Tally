@@ -188,38 +188,35 @@ export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: 
             const pct = draftBudget > 0 ? Math.min(100, Math.round((r.actualMinor / draftBudget) * 100)) : r.actualMinor > 0 ? 100 : 0;
             return (
               <li key={r.name} className="flex min-w-0 flex-col gap-2 rounded-2xl p-3.5 sm:p-4" style={{ background: tone.background, border: `1px solid ${tone.border}`, color: tone.color }}>
-                <span className="truncate text-sm font-semibold">{r.name}</span>
-                <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{formatUSD(r.actualMinor)}</span>
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-semibold">{r.name}</span>
+                  {inline && <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide opacity-70">Budget</span>}
+                </span>
+                {inline ? (
+                  // While editing, the big number is the budget itself and is typed over in place.
+                  <label
+                    className={`-mx-1 inline-flex cursor-text items-baseline self-start rounded-t-md border-b-2 border-dashed px-1 text-xl font-bold tracking-tight tabular-nums transition focus-within:bg-white/15 focus-within:[border-bottom-style:solid] sm:text-2xl ${draft.parsed[r.id!] === null ? "border-danger" : "[border-color:color-mix(in_srgb,currentColor_50%,transparent)]"}`}
+                  >
+                    <span aria-hidden="true">$</span>
+                    <input
+                      inputMode="decimal"
+                      aria-label={`${r.name} budget`}
+                      value={draft.values[r.id!] ?? ""}
+                      onChange={(e) => draft.setValues((v) => ({ ...v, [r.id!]: e.target.value }))}
+                      onFocus={(e) => e.currentTarget.select()}
+                      style={{ width: `${Math.max(2, (draft.values[r.id!] ?? "").length + 0.6)}ch`, outline: "none" }}
+                      className="min-w-0 bg-transparent text-inherit"
+                    />
+                  </label>
+                ) : (
+                  <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{formatUSD(r.actualMinor)}</span>
+                )}
                 <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-canvas/60">
                   <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: over ? "var(--color-danger)" : tone.bar }} />
                 </span>
-                {inline ? (
-                  <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
-                    <span className="text-xs opacity-75">Budget</span>
-                    {/* The number itself is the field: it reads as text, with a dashed underline that says "type here". */}
-                    <label
-                      className={`-mx-1 inline-flex cursor-text items-baseline rounded-t-md px-1 font-bold tabular-nums transition focus-within:bg-white/15 focus-within:[border-bottom-style:solid] ${draft.parsed[r.id!] === null ? "border-b-2 border-dashed border-danger" : "border-b-2 border-dashed [border-color:color-mix(in_srgb,currentColor_50%,transparent)]"}`}
-                    >
-                      <span aria-hidden="true">$</span>
-                      <input
-                        inputMode="decimal"
-                        aria-label={`${r.name} budget`}
-                        value={draft.values[r.id!] ?? ""}
-                        onChange={(e) => draft.setValues((v) => ({ ...v, [r.id!]: e.target.value }))}
-                        onFocus={(e) => e.currentTarget.select()}
-                        style={{ width: `${Math.max(2, (draft.values[r.id!] ?? "").length + 0.6)}ch`, outline: "none" }}
-                        className="min-w-0 bg-transparent text-inherit outline-none"
-                      />
-                    </label>
-                    <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
-                      · {text}
-                    </span>
-                  </span>
-                ) : (
-                  <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
-                    {text}
-                  </span>
-                )}
+                <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
+                  {inline ? `Spent ${formatUSD(r.actualMinor)} · ${text}` : text}
+                </span>
               </li>
             );
           })}
