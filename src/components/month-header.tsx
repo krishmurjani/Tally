@@ -10,11 +10,11 @@ const TABS = [
 ] as const;
 
 /** Month picker (always visible in Expenses) + the Spending / Income / Insights tabs. */
-export function MonthHeader({ month, tab, badge }: { month: MonthKey; tab: (typeof TABS)[number]["key"]; badge?: ReactNode }) {
+export function MonthHeader({ month, tab, caption }: { month: MonthKey; tab: (typeof TABS)[number]["key"]; caption?: { text: string; strong?: boolean } }) {
   const suffix = TABS.find((t) => t.key === tab)!.suffix;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <MonthPicker month={month} basePath="/expenses" current={currentMonthNY()} suffix={suffix} badge={badge} />
+      <MonthPicker month={month} basePath="/expenses" current={currentMonthNY()} suffix={suffix} caption={caption} />
       <nav className="grid w-full grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1 text-sm sm:flex sm:w-auto" aria-label="Expenses views">
         {TABS.map((t) => (
           <Link

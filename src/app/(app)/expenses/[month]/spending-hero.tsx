@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { BudgetStatus } from "@/engines/budget";
 import { addMonths, monthLabel } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
@@ -24,6 +25,8 @@ export function SpendingHero({
   changeMinor,
   previousMinor,
   top,
+  closed = false,
+  footer,
 }: {
   month: string;
   isCurrentMonth: boolean;
@@ -35,6 +38,10 @@ export function SpendingHero({
   changeMinor: number | null;
   previousMinor: number | null;
   top: TopCategory[];
+  /** Closed months show a Closed chip on the card. */
+  closed?: boolean;
+  /** Quiet row along the bottom (closed months: last synced + Reopen). */
+  footer?: ReactNode;
 }) {
   const pct = budgetMinor > 0 ? totalMinor / budgetMinor : null;
   // Within budget: mint. Past the budget line: the overspend arc in red. A ring can't show more than a full turn,
@@ -50,7 +57,16 @@ export function SpendingHero({
   const previousName = monthLabel(addMonths(month, -1)).split(" ")[0];
 
   return (
-    <section className="rounded-3xl bg-hero p-5 text-[#f7f5ef] sm:p-8">
+    <section className="relative rounded-3xl bg-hero p-5 text-[#f7f5ef] sm:p-8">
+      {closed && (
+        <span className="absolute right-4 top-4 inline-flex h-7 items-center gap-1.5 rounded-full bg-white/15 px-2.5 text-xs font-medium sm:right-6 sm:top-6">
+          <svg aria-hidden="true" viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4.5" y="9" width="11" height="7.5" rx="1.5" />
+            <path d="M7 9V6.8a3 3 0 0 1 6 0V9" />
+          </svg>
+          Closed
+        </span>
+      )}
       <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-8">
         <div className="min-w-0 sm:flex-1 sm:basis-72">
           <p className="text-sm text-[#d8e8dd]/80">{isCurrentMonth ? "My share so far" : "My share of spending"}</p>
@@ -117,6 +133,7 @@ export function SpendingHero({
           ))}
         </div>
       )}
+      {footer && <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/15 pt-4 text-sm text-[#d8e8dd]">{footer}</div>}
     </section>
   );
 }

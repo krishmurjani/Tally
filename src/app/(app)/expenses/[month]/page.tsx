@@ -15,7 +15,7 @@ import { AddExpenseButton } from "./expense-form";
 import { NeedsAttention } from "./needs-attention";
 import { NewCategoryProvider } from "./new-category";
 import { SpendingHero } from "./spending-hero";
-import { btnSecondary, ChangesBanner, CloseMonthButton, ReopenMonthButton, SourceSwitch, StatusChip, SyncButton } from "./toolbar";
+import { btnSecondary, ChangesBanner, CloseMonthButton, ReopenMonthButton, SourceSwitch, SyncButton } from "./toolbar";
 import { Transactions } from "./transactions";
 
 export async function generateMetadata({ params }: { params: Promise<{ month: string }> }): Promise<Metadata> {
@@ -43,8 +43,9 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
   return (
     <NewCategoryProvider month={month} closed={closed}>
     <div className="space-y-6">
-      <MonthHeader month={month} tab="spending" badge={<StatusChip closed={closed} monthToDate={v.isCurrentMonth} />} />
+      <MonthHeader month={month} tab="spending" caption={closed ? { text: "Closed · snapshot", strong: true } : { text: v.isCurrentMonth ? "Open · month to date" : "Open" }} />
 
+      {(!closed || !s) && (
       <section aria-label="Month actions" className="rounded-card border border-line bg-surface p-3 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="w-full sm:w-auto">{!closed && <SourceSwitch month={month} source={v.dataSource} />}</div>
@@ -57,13 +58,14 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
             )}
             {!closed && <AddExpenseButton month={month} categories={cats} />}
             {!closed && v.hasData && <CloseMonthButton month={month} version={v.version} blockers={blockers} />}
-            {closed && v.version && <ReopenMonthButton month={month} version={v.version} />}
+            {closed && !s && v.version && <ReopenMonthButton month={month} version={v.version} />}
           </div>
         </div>
         {v.lastSyncAt && v.dataSource === "api" && (
           <p className="mt-2 text-xs text-faint">Last synced {v.lastSyncAt.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })}</p>
         )}
       </section>
+      )}
 
       {closed && v.pendingChanges && v.version && <ChangesBanner month={month} version={v.version} diff={v.pendingChanges} />}
 
@@ -102,6 +104,15 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
             leftOverMinor={s.leftOverMinor}
             changeMinor={change}
             previousMinor={s.previousTotalMinor}
+            closed={closed}
+            footer={
+              closed && (
+                <>
+                  <span>{v.lastSyncAt && v.dataSource === "api" ? `Last synced ${v.lastSyncAt.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })}` : "Frozen snapshot"}</span>
+                  {v.version && <ReopenMonthButton month={month} version={v.version} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-medium text-[#f7f5ef] transition hover:bg-white/20" />}
+                </>
+              )
+            }
             top={[...s.byCategory]
               .filter((c) => c.actualMinor > 0)
               .sort((x, y) => y.actualMinor - x.actualMinor)

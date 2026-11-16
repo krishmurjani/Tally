@@ -152,12 +152,12 @@ export function CloseMonthButton({ month, version, blockers }: { month: string; 
 }
 
 /** Closed months can be opened again. The closed snapshot is discarded and the live data takes over. */
-export function ReopenMonthButton({ month, version }: { month: string; version: number }) {
+export function ReopenMonthButton({ month, version, className }: { month: string; version: number; className?: string }) {
   const a = useAction(reopenMonthAction, { success: () => `${monthLabel(month)} is open again` });
   const [confirming, setConfirming] = useState(false);
   return (
     <>
-      <button onClick={() => setConfirming(true)} className={btnSecondary}>
+      <button onClick={() => setConfirming(true)} className={className ?? btnSecondary}>
         <Icon>
           <rect x="4.5" y="9" width="11" height="7.5" rx="1.5" />
           <path d="M7 9V6.8a3 3 0 0 1 5.6-1.5" />
