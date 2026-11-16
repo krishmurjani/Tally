@@ -37,6 +37,8 @@ export type ApiExpense = SplitwiseExpense & { users: (SplitwiseExpense["users"][
 
 const UserSchema = z.object({ id: z.number().int(), first_name: z.string().nullable().optional(), last_name: z.string().nullable().optional() });
 const GroupSchema = z.object({ id: z.number().int(), name: z.string() });
+const PersonSchema = z.object({ id: z.number().int(), first_name: z.string().nullable().optional(), last_name: z.string().nullable().optional() });
+const toPerson = (p: z.infer<typeof PersonSchema>): SwPerson => ({ id: p.id, firstName: p.first_name ?? "", lastName: p.last_name ?? "" });
 
 export class SplitwiseError extends Error {
   constructor(message: string, public readonly status: number | null) {
@@ -45,12 +47,45 @@ export class SplitwiseError extends Error {
   }
 }
 export class SplitwiseAuthError extends SplitwiseError {}
+/** Splitwise answered and refused (bad input). Nothing was created. */
+export class SplitwiseRejectedError extends SplitwiseError {}
+/** The request may or may not have reached Splitwise (network error, timeout, 5xx). The expense might exist: never retry blindly. */
+export class SplitwiseUncertainError extends SplitwiseError {}
+
+export interface SwPerson {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+export interface SwGroup {
+  id: number;
+  name: string;
+  members: SwPerson[];
+}
+export interface CreateExpenseInput {
+  /** Decimal string, e.g. "120.00". */
+  cost: string;
+  description: string;
+  details?: string | null;
+  /** ISO timestamp. We send noon UTC so the New York calendar date never shifts. */
+  date: string;
+  currencyCode: string;
+  /** 0 = a non-group expense between friends. */
+  groupId: number;
+  categoryId?: number;
+  shares: { userId: number; paid: string; owed: string }[];
+}
 
 export interface SplitwiseApi {
   getCurrentUser(): Promise<{ id: number; firstName: string; lastName: string }>;
   /** All expenses matching the filters, across pages. Raw JSON is returned alongside the parsed shape. */
   getExpenses(params: { datedAfter?: string; datedBefore?: string; updatedAfter?: string }): Promise<{ parsed: ApiExpense; raw: unknown }[]>;
   getGroups(): Promise<{ id: number; name: string }[]>;
+  /** Groups with their members (the real group list excludes Splitwise's pseudo-group 0). */
+  getGroupsWithMembers(): Promise<SwGroup[]>;
+  getFriends(): Promise<SwPerson[]>;
+  /** Creates ONE expense. Never retried automatically after a network error or 5xx — see SplitwiseUncertainError. */
+  createExpense(input: CreateExpenseInput): Promise<{ id: number; raw: unknown }>;
 }
 
 export interface ClientOptions {
@@ -62,6 +97,15 @@ export interface ClientOptions {
   pageSize?: number;
   /** Safety stop for runaway paging. */
   maxPages?: number;
+}
+
+/** Flatten Splitwise's {"base": ["…"], "field": ["…"]} (or a bare string/array) into one readable line. */
+function describeErrors(e: unknown): string {
+  if (!e) return "";
+  if (typeof e === "string") return e;
+  if (Array.isArray(e)) return e.map(describeErrors).filter(Boolean).join("; ");
+  if (typeof e === "object") return Object.values(e as Record<string, unknown>).map(describeErrors).filter(Boolean).join("; ");
+  return "";
 }
 
 export function createSplitwiseClient(opts: ClientOptions): SplitwiseApi {
@@ -97,6 +141,39 @@ export function createSplitwiseClient(opts: ClientOptions): SplitwiseApi {
     }
   }
 
+  /** POST a form. Retried only when Splitwise says it hasn't processed it (429); anything else uncertain is surfaced, not repeated. */
+  async function post(path: string, form: URLSearchParams): Promise<unknown> {
+    for (let attempt = 0; ; attempt++) {
+      let res: Response;
+      try {
+        res = await doFetch(`${base}/${path}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+          body: form,
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        });
+      } catch (e) {
+        throw new SplitwiseUncertainError(`No answer from Splitwise (${(e as Error).message}); the expense may or may not have been created`, null);
+      }
+      if (res.status === 401 || res.status === 403) throw new SplitwiseAuthError("Splitwise rejected the API key", res.status);
+      if (res.status === 429 && attempt < 3) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : 1000 * 2 ** attempt);
+        continue;
+      }
+      if (res.status >= 500 || res.status === 429) throw new SplitwiseUncertainError(`Splitwise answered HTTP ${res.status}; the expense may or may not have been created`, res.status);
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* not JSON */
+      }
+      if (!res.ok) throw new SplitwiseRejectedError(`Splitwise refused it (HTTP ${res.status}): ${describeErrors(body) || "no reason given"}`, res.status);
+      return body;
+    }
+  }
+
   return {
     async getCurrentUser() {
       const body = z.object({ user: UserSchema }).parse(await get("get_current_user"));
@@ -105,6 +182,38 @@ export function createSplitwiseClient(opts: ClientOptions): SplitwiseApi {
     async getGroups() {
       const body = z.object({ groups: z.array(GroupSchema) }).parse(await get("get_groups"));
       return body.groups;
+    },
+    async getGroupsWithMembers() {
+      const body = z.object({ groups: z.array(z.object({ id: z.number().int(), name: z.string(), members: z.array(PersonSchema).default([]) })) }).parse(await get("get_groups"));
+      return body.groups.filter((g) => g.id !== 0).map((g) => ({ id: g.id, name: g.name, members: g.members.map(toPerson) }));
+    },
+    async getFriends() {
+      const body = z.object({ friends: z.array(PersonSchema) }).parse(await get("get_friends"));
+      return body.friends.map(toPerson);
+    },
+    async createExpense(input) {
+      const form = new URLSearchParams({
+        cost: input.cost,
+        description: input.description,
+        date: input.date,
+        currency_code: input.currencyCode,
+        group_id: String(input.groupId),
+        repeat_interval: "never",
+      });
+      if (input.details) form.set("details", input.details);
+      if (input.categoryId) form.set("category_id", String(input.categoryId));
+      input.shares.forEach((sh, i) => {
+        form.set(`users__${i}__user_id`, String(sh.userId));
+        form.set(`users__${i}__paid_share`, sh.paid);
+        form.set(`users__${i}__owed_share`, sh.owed);
+      });
+      const body = await post("create_expense", form);
+      // Splitwise can answer 200 and still refuse, with the reasons under "errors".
+      const why = describeErrors((body as { errors?: unknown } | null)?.errors);
+      if (why) throw new SplitwiseRejectedError(`Splitwise refused it: ${why}`, 200);
+      const made = (body as { expenses?: { id?: unknown }[] } | null)?.expenses?.[0];
+      if (!made || typeof made.id !== "number") throw new SplitwiseUncertainError("Splitwise answered without saying whether the expense was created", 200);
+      return { id: made.id, raw: made };
     },
     async getExpenses(params) {
       const out: { parsed: ApiExpense; raw: unknown }[] = [];

@@ -348,7 +348,13 @@ export const inboxItems = pgTable(
     paidBy: text("paid_by"),
     /** For shared expenses: who owes what, in minor units. Adds up to amountMinor. */
     split: jsonb("split").$type<{ person: string; owesMinor: number }[]>(),
-    status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
+    /** "posting": a Splitwise post was started and not confirmed either way: check Splitwise before retrying. */
+    status: text("status", { enum: ["pending", "approved", "rejected", "posting"] }).notNull().default("pending"),
+    /** Set once a shared item has been created in Splitwise. The next sync brings that expense back as a normal row. */
+    splitwiseExpenseId: money("splitwise_expense_id"),
+    postAttemptAt: ts("post_attempt_at"),
+    /** Why the last post didn't complete, for the Inbox to show. */
+    postError: text("post_error"),
     manualExpenseId: uuid("manual_expense_id").references(() => manualExpenses.id, { onDelete: "set null" }),
     /** Exactly what was sent, for reconciling duplicates. */
     raw: jsonb("raw").notNull(),
@@ -359,6 +365,7 @@ export const inboxItems = pgTable(
   },
   (t) => [
     uniqueIndex("inbox_items_external").on(t.ownerId, t.externalId),
+    uniqueIndex("inbox_items_splitwise").on(t.ownerId, t.splitwiseExpenseId).where(sql`${t.splitwiseExpenseId} is not null`),
     index("inbox_items_owner_status").on(t.ownerId, t.status),
     check("inbox_items_positive", sql`${t.amountMinor} > 0`),
   ],

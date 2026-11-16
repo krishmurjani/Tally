@@ -1,5 +1,5 @@
 /** In-memory stand-in for the Splitwise API (synthetic data only). */
-import type { ApiExpense, SplitwiseApi } from "@/server/splitwise/client";
+import { SplitwiseRejectedError, SplitwiseUncertainError, type ApiExpense, type CreateExpenseInput, type SplitwiseApi, type SwGroup, type SwPerson } from "@/server/splitwise/client";
 
 export const ME = 1001;
 export const ROOMMATE = 2002;
@@ -28,6 +28,51 @@ export function makeExpense(over: Partial<ApiExpense> & { id: number; myOwed?: s
 export class FakeSplitwise implements SplitwiseApi {
   expenses: ApiExpense[] = [];
   calls = 0;
+  /** Every create_expense the code under test tried to send — nothing here ever leaves the process. */
+  created: CreateExpenseInput[] = [];
+  /** What the next createExpense should do. */
+  createMode: "ok" | "reject" | "uncertain-created" | "uncertain-lost" = "ok";
+  nextExpenseId = 9000;
+  detailedGroups: SwGroup[] = [
+    {
+      id: 77,
+      name: "18 Battery Ave",
+      members: [
+        { id: ME, firstName: "Krish", lastName: "Murjani" },
+        { id: ROOMMATE, firstName: "Prathamesh", lastName: "A" },
+      ],
+    },
+  ];
+  friends: SwPerson[] = [{ id: FRIEND, firstName: "Siddh", lastName: "S" }];
+  async getGroupsWithMembers() {
+    this.calls++;
+    return structuredClone(this.detailedGroups);
+  }
+  async getFriends() {
+    this.calls++;
+    return structuredClone(this.friends);
+  }
+  async createExpense(input: CreateExpenseInput) {
+    this.calls++;
+    this.created.push(structuredClone(input));
+    if (this.createMode === "reject") throw new SplitwiseRejectedError("Splitwise refused it: The total of everyone's owed shares must equal the cost", 200);
+    const id = this.nextExpenseId++;
+    // A "lost" request never reached Splitwise; a "created" one did, but the answer was lost on the way back.
+    if (this.createMode === "uncertain-lost") throw new SplitwiseUncertainError("No answer from Splitwise", null);
+    this.expenses.push(
+      makeExpense({
+        id,
+        cost: input.cost,
+        description: input.description,
+        group_id: input.groupId || null,
+        currency_code: input.currencyCode,
+        date: input.date,
+        users: input.shares.map((sh) => ({ user_id: sh.userId, paid_share: sh.paid, owed_share: sh.owed, net_balance: "0" })),
+      }),
+    );
+    if (this.createMode === "uncertain-created") throw new SplitwiseUncertainError("No answer from Splitwise", null);
+    return { id, raw: { id } };
+  }
   constructor(public groups = [{ id: 77, name: "18 Battery Ave" }]) {}
   async getCurrentUser() {
     this.calls++;

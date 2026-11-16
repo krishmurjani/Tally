@@ -50,6 +50,13 @@
       "when": 1794809022577,
       "tag": "0006_inbox_and_api_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794812654763,
+      "tag": "0007_inbox_splitwise_post",
+      "breakpoints": true
     }
   ]
 }

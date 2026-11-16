@@ -126,7 +126,7 @@ GET  /api/inbox/meta       the category names Tally uses, and the limits
 - Every item needs a stable `externalId`; resending it is ignored, so retries are safe.
 - The reply has a status per item: `created`, `duplicate_ignored`, `invalid` (with reasons); with `dryRun`: `would_create`, `would_ignore_duplicate`. Items that need a decision list their `blockers`.
 - Amounts are strings with at most two decimals. A shared split must add up to the total exactly.
-- Items land in the **Inbox** as drafts. Nothing counts until you approve. Shared expenses can't be approved yet (posting to Splitwise is the next step).
+- Items land in the **Inbox** as drafts. Nothing counts until you approve. Private ones are approved into Tally. Shared ones are posted to Splitwise from a confirmation screen that shows the group and everyone's share first. Name the Splitwise `group` exactly (leave it out for a non-group expense), say who `paidBy`, and give a `split`.
 - Up to 100 items and 256 KB per request. Revoke a token in the same settings page.
 
 ## Backups

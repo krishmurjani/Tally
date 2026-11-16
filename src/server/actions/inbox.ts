@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { approveInboxItem, approveReadyInbox, createApiToken, rejectInboxItem, revokeApiToken, setInboxCategory } from "../repos/inbox";
+import { checkPostingItem, postSharedBatch, previewPosts } from "../repos/inbox-post";
+import { createSplitwiseClient, SplitwiseAuthError, SplitwiseError } from "../splitwise/client";
 import { UserFacingError } from "../repos/errors";
 import { ownerAction } from "./run";
 
@@ -52,5 +54,43 @@ export async function createApiTokenAction(input: unknown) {
 export async function revokeApiTokenAction(input: unknown) {
   const res = await ownerAction(z.object({ id: z.uuid() }), input, ({ db, owner, input }) => revokeApiToken(db, owner, input.id));
   if (res.ok) revalidatePath("/settings/api");
+  return res;
+}
+
+// ---------------------------------------------------------------------------------------------- Splitwise
+
+function splitwise() {
+  const key = process.env.SPLITWISE_API_KEY;
+  if (!key) throw new UserFacingError("Splitwise isn't connected yet — add SPLITWISE_API_KEY on the server.");
+  return createSplitwiseClient({ apiKey: key });
+}
+
+async function viaSplitwise<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof SplitwiseAuthError) throw new UserFacingError("Splitwise rejected the API key (check SPLITWISE_API_KEY).");
+    if (e instanceof SplitwiseError && !(e instanceof SplitwiseAuthError)) throw new UserFacingError(`Splitwise: ${e.message}`);
+    throw e;
+  }
+}
+
+const Ids = z.object({ ids: z.array(z.uuid()).min(1).max(25) });
+
+/** What would be posted — read-only. Reads Splitwise to find the group and people; writes nothing. */
+export async function previewSplitwisePostsAction(input: unknown) {
+  return ownerAction(Ids, input, ({ db, owner, input }) => viaSplitwise(() => previewPosts(db, owner, splitwise(), input.ids)));
+}
+
+/** Creates the expenses in Splitwise. Only ever called from the confirmation screen. */
+export async function postToSplitwiseAction(input: unknown) {
+  const res = await ownerAction(Ids, input, ({ db, owner, input }) => viaSplitwise(() => postSharedBatch(db, owner, splitwise(), input.ids)));
+  revalidatePath("/", "layout");
+  return res;
+}
+
+export async function checkPostingAction(input: unknown) {
+  const res = await ownerAction(z.object({ id: z.uuid() }), input, ({ db, owner, input }) => viaSplitwise(() => checkPostingItem(db, owner, splitwise(), input.id)));
+  revalidatePath("/", "layout");
   return res;
 }

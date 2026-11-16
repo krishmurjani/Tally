@@ -51,7 +51,8 @@ describe("Inbox blockers", () => {
     expect(blockers({ ...ready, categoryId: null })).toEqual(["Choose a category"]);
     expect(blockers({ ...ready, currency: "INR" })[0]).toMatch(/INR/);
     expect(blockers({ ...ready, monthClosed: true })).toEqual(["That month is closed"]);
-    expect(blockers({ ...ready, kind: "shared" })[0]).toMatch(/Splitwise/);
+    expect(blockers({ ...ready, kind: "shared" })).toEqual(["Who paid? Not stated", "Who owes what? No split"]);
+    expect(blockers({ ...ready, kind: "shared", hasPayer: true, hasSplit: true, currency: "INR" })).toEqual([]); // Splitwise handles other currencies
     expect(blockers({ kind: "shared", currency: "INR", categoryId: null, monthClosed: true })).toHaveLength(4);
   });
 });

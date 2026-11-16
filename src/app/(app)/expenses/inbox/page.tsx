@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Inbox" };
 
 export default async function InboxPage() {
   const owner = await requireOwnerOrRedirect();
-  const { pending, recent, categories } = await loadInbox(getDb(), owner);
+  const { pending, posting, recent, categories } = await loadInbox(getDb(), owner);
   const view = (r: (typeof pending)[number]) => ({
     id: r.id,
     date: r.date,
@@ -25,6 +25,8 @@ export default async function InboxPage() {
     status: r.status,
     blockers: r.blockers,
     split: r.split,
+    splitwiseExpenseId: r.splitwiseExpenseId,
+    postError: r.postError,
   });
   return (
     <div className="space-y-6">
@@ -35,7 +37,7 @@ export default async function InboxPage() {
         </Link>
       </div>
       <p className="text-sm text-muted">Expenses sent by an assistant wait here. Nothing counts toward your budget until you approve it.</p>
-      <InboxList pending={pending.map(view)} recent={recent.map(view)} categories={categories} />
+      <InboxList pending={pending.map(view)} posting={posting.map(view)} recent={recent.map(view)} categories={categories} />
     </div>
   );
 }

@@ -76,7 +76,7 @@ export interface IngestResult {
   blockers?: string[];
   notes?: string[];
   /** For duplicates: what became of the original, and whether this resend differs from it. */
-  existing?: { status: "pending" | "approved" | "rejected"; differs: boolean };
+  existing?: { status: "pending" | "approved" | "rejected" | "posting"; differs: boolean };
   id?: string;
 }
 
@@ -125,7 +125,7 @@ export async function ingestInbox(db: AnyDb, owner: Owner, rawItems: unknown[], 
     results[index] = {
       externalId: item.externalId,
       status: opts.dryRun ? "would_create" : "created",
-      blockers: blockers({ kind: item.kind, currency: item.currency, categoryId, monthClosed: closed.has(monthOf(item.date)) }),
+      blockers: blockers({ kind: item.kind, currency: item.currency, categoryId, monthClosed: closed.has(monthOf(item.date)), hasPayer: !!item.paidBy, hasSplit: !!item.split }),
       ...(notes.length ? { notes } : {}),
     };
     toInsert.push({ index, item, raw, categoryId });
@@ -173,14 +173,16 @@ export async function loadInbox(db: AnyDb, owner: Owner) {
     closedMonths(db, owner),
     db.select({ id: schema.categories.id, name: schema.categories.name }).from(schema.categories).where(and(eq(schema.categories.ownerId, owner.id), eq(schema.categories.archived, false))).orderBy(asc(schema.categories.sortOrder)),
   ]);
-  const withBlockers = (r: (typeof rows)[number]): InboxRow => ({ ...r, blockers: r.status === "pending" ? blockers({ kind: r.kind, currency: r.currency, categoryId: r.categoryId, monthClosed: closed.has(monthOf(r.date)) }) : [] });
+  const withBlockers = (r: (typeof rows)[number]): InboxRow => ({ ...r, blockers: r.status === "pending" ? blockers({ kind: r.kind, currency: r.currency, categoryId: r.categoryId, monthClosed: closed.has(monthOf(r.date)), hasPayer: !!r.paidBy, hasSplit: !!r.split }) : [] });
   const pending = rows.filter((r) => r.status === "pending").map(withBlockers);
+  // A post that started and never got a clear answer: needs a look at Splitwise before anything else happens to it.
+  const posting = rows.filter((r) => r.status === "posting").map(withBlockers);
   const recent = rows
-    .filter((r) => r.status !== "pending")
+    .filter((r) => r.status === "approved" || r.status === "rejected")
     .sort((a, b) => (b.decidedAt?.getTime() ?? 0) - (a.decidedAt?.getTime() ?? 0))
     .slice(0, 15)
     .map(withBlockers);
-  return { pending, recent, categories };
+  return { pending, posting, recent, categories };
 }
 
 export async function pendingInboxCount(db: AnyDb, owner: Owner): Promise<number> {
@@ -212,6 +214,7 @@ export async function approveInboxItem(db: AnyDb, owner: Owner, id: string): Pro
   return db.transaction(async (tx) => {
     const item = await pendingItem(tx, owner, id);
     const closed = await closedMonths(tx, owner);
+    if (item.kind === "shared") throw new UserFacingError("Shared expenses are posted to Splitwise, not approved into Tally.");
     const why = blockers({ kind: item.kind, currency: item.currency, categoryId: item.categoryId, monthClosed: closed.has(monthOf(item.date)) });
     if (why.length) throw new UserFacingError(why[0]!);
     const expense = await addManualExpense(tx, owner, {
@@ -241,7 +244,7 @@ export async function approveReadyInbox(db: AnyDb, owner: Owner): Promise<{ appr
   const { pending } = await loadInbox(db, owner);
   let approved = 0;
   for (const row of pending) {
-    if (row.blockers.length) continue;
+    if (row.blockers.length || row.kind !== "private") continue; // shared ones are posted, with a preview, not bulk-approved
     await approveInboxItem(db, owner, row.id);
     approved++;
   }

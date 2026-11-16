@@ -114,10 +114,15 @@ export function parseInboxItem(raw: unknown): ParseResult {
 }
 
 /** Why an item can't be approved yet. Empty = ready. Computed fresh each time from what is stored. */
-export function blockers(i: { kind: "private" | "shared"; currency: string; categoryId: string | null; monthClosed: boolean }): string[] {
+export function blockers(i: { kind: "private" | "shared"; currency: string; categoryId: string | null; monthClosed: boolean; hasPayer?: boolean; hasSplit?: boolean }): string[] {
   const out: string[] = [];
-  if (i.kind === "shared") out.push("Shared expense — posting to Splitwise isn't set up yet");
-  if (i.currency !== "USD") out.push(`In ${i.currency}; Tally tracks private spending in USD`);
+  if (i.kind === "shared") {
+    // Shared expenses are posted to Splitwise, which handles other currencies; they need a payer and a split.
+    if (!i.hasPayer) out.push("Who paid? Not stated");
+    if (!i.hasSplit) out.push("Who owes what? No split");
+  } else if (i.currency !== "USD") {
+    out.push(`In ${i.currency}; Tally tracks private spending in USD`);
+  }
   if (!i.categoryId) out.push("Choose a category");
   if (i.monthClosed) out.push("That month is closed");
   return out;
