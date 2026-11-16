@@ -9,7 +9,6 @@ import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { loadMonthView } from "@/server/month-data";
 import { budgetForMonth } from "@/server/repos/budgets";
-import { BudgetEditor } from "./budget-editor";
 import { CategoryBreakdown } from "./category-breakdown";
 import { AddExpenseButton } from "./expense-form";
 import { NeedsAttention } from "./needs-attention";
@@ -114,7 +113,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
               )
             }
             top={[...s.byCategory]
-              .filter((c) => c.actualMinor > 0)
+              .filter((c) => c.actualMinor > 0 && c.category.toLowerCase() !== "rent")
               .sort((x, y) => y.actualMinor - x.actualMinor)
               .slice(0, 3)
               .map((c) => ({ name: c.category, minor: c.actualMinor, dot: categoryTone(c.category, order).dot }))}
@@ -134,8 +133,8 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
           <CategoryBreakdown
             order={order}
             sourceLabel={v.budgetSource === "default" ? "Default budget" : v.budgetSource === "snapshot" ? "Budget at close" : "This month's budget"}
-            editor={!closed ? <BudgetEditor month={month} categories={cats} amounts={budget.amounts} actuals={actuals} source={budget.source} /> : undefined}
-            rows={s.byCategory.map((c) => ({ name: c.category, actualMinor: c.actualMinor, budgetMinor: c.budgetMinor, statusText: c.status.text.split(" · ")[0]!, over: c.status.kind === "over" }))}
+            budget={!closed ? { month, categories: cats, amounts: budget.amounts, actuals, source: budget.source } : undefined}
+            rows={s.byCategory.map((c) => ({ id: cats.find((k) => k.name === c.category)?.id ?? null, name: c.category, actualMinor: c.actualMinor, budgetMinor: c.budgetMinor, statusText: c.status.text.split(" · ")[0]!, over: c.status.kind === "over" }))}
           />
 
           {v.kind === "detailed" && (

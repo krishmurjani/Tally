@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { SaveStatus } from "@/components/save-status";
+import { budgetStatus } from "@/engines/budget";
+import { monthLabel } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
 import { categoryTone } from "@/lib/category-colors";
+import { BudgetDrawer, useBudgetDraft, type BudgetEditorProps } from "./budget-editor";
 
 export interface CategoryRow {
+  id: string | null;
   name: string;
   actualMinor: number;
   budgetMinor: number;
@@ -60,8 +65,13 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
   );
 }
 
-export function CategoryBreakdown({ rows, order, sourceLabel, editor }: { rows: CategoryRow[]; order: string[]; sourceLabel: string; editor?: ReactNode }) {
+const editBtn = "inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50";
+
+export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: CategoryRow[]; order: string[]; sourceLabel: string; budget?: BudgetEditorProps }) {
   const [view, setView] = useState<View>("list");
+  const [drawer, setDrawer] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const draft = useBudgetDraft(budget ?? { month: "", categories: [], amounts: {} });
   useEffect(() => {
     try {
       const saved = localStorage.getItem(KEY);
@@ -72,6 +82,10 @@ export function CategoryBreakdown({ rows, order, sourceLabel, editor }: { rows: 
   }, []);
   const choose = (v: View) => {
     setView(v);
+    if (editing) {
+      setEditing(false);
+      draft.reset();
+    }
     try {
       localStorage.setItem(KEY, v);
     } catch {
@@ -79,6 +93,10 @@ export function CategoryBreakdown({ rows, order, sourceLabel, editor }: { rows: 
     }
   };
   const pctOf = (r: CategoryRow) => (r.budgetMinor > 0 ? Math.min(100, Math.round((r.actualMinor / r.budgetMinor) * 100)) : r.actualMinor > 0 ? 100 : 0);
+  const finishEdit = () => {
+    setEditing(false);
+    draft.reset();
+  };
 
   return (
     <section className="rounded-card border border-line bg-surface p-4 sm:p-6">
@@ -88,10 +106,54 @@ export function CategoryBreakdown({ rows, order, sourceLabel, editor }: { rows: 
           <p className="text-xs text-faint">{sourceLabel}</p>
         </div>
         <div className="flex items-center gap-3">
-          {editor}
+          {budget && !editing && (
+            <button type="button" onClick={() => (view === "cards" ? setEditing(true) : setDrawer(true))} className={editBtn}>
+              <svg aria-hidden="true" viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12.5 4.5l3 3L7 16H4v-3z" />
+              </svg>
+              Edit budget
+            </button>
+          )}
           <ViewToggle view={view} onChange={choose} />
         </div>
       </div>
+
+      {budget && editing && view === "cards" && (
+        <div className="mb-4 rounded-2xl border border-forest-600/40 bg-forest-50 p-3 sm:p-4">
+          <p className="text-sm font-medium">
+            Editing budget · total {formatUSD(draft.total)}
+            <span className="ml-2 font-normal text-muted">Type in any card. Cards update as you go.</span>
+          </p>
+          {draft.invalid.length > 0 && <p className="mt-1 text-sm text-danger">Fix: {draft.invalid.map((c) => c.name).join(", ")} (amounts like 100 or 100.50, not negative).</p>}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              disabled={draft.save.pending || draft.invalid.length > 0}
+              onClick={async () => {
+                if (await draft.submit("month")) setEditing(false);
+              }}
+              className="h-10 rounded-xl bg-forest-700 px-4 text-sm font-medium text-white transition hover:bg-forest-800 disabled:opacity-60"
+            >
+              Save for {monthLabel(budget.month)} only
+            </button>
+            <button
+              disabled={draft.save.pending || draft.invalid.length > 0}
+              onClick={async () => {
+                if (await draft.submit("default")) setEditing(false);
+              }}
+              className="h-10 rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50 disabled:opacity-60"
+            >
+              Save as default from {monthLabel(budget.month, "short")} on
+            </button>
+            <button disabled={draft.copy.pending} onClick={draft.copyPrevious} className="h-10 rounded-xl border border-line bg-surface px-4 text-sm transition hover:bg-forest-50">
+              Copy last month
+            </button>
+            <button onClick={finishEdit} className="h-10 rounded-xl px-3 text-sm text-muted transition hover:text-ink">
+              Cancel
+            </button>
+            <SaveStatus state={draft.save.state.kind === "saved" ? { kind: "idle" } : draft.save.state} />
+          </div>
+        </div>
+      )}
 
       {view === "list" ? (
         <ul>
@@ -117,21 +179,41 @@ export function CategoryBreakdown({ rows, order, sourceLabel, editor }: { rows: 
         <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {rows.map((r) => {
             const tone = categoryTone(r.name, order);
+            const inline = editing && budget && r.id !== null;
+            // While editing, the card follows the number being typed.
+            const draftBudget = inline ? (draft.parsed[r.id!] ?? r.budgetMinor) : r.budgetMinor;
+            const live = inline ? budgetStatus(r.actualMinor, draftBudget) : null;
+            const over = inline ? live!.tone === "danger" : r.over;
+            const text = inline ? live!.text.split(" · ")[0]! : r.statusText;
+            const pct = draftBudget > 0 ? Math.min(100, Math.round((r.actualMinor / draftBudget) * 100)) : r.actualMinor > 0 ? 100 : 0;
             return (
               <li key={r.name} className="flex min-w-0 flex-col gap-2 rounded-2xl p-3.5 sm:p-4" style={{ background: tone.background, border: `1px solid ${tone.border}`, color: tone.color }}>
                 <span className="truncate text-sm font-semibold">{r.name}</span>
                 <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{formatUSD(r.actualMinor)}</span>
                 <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-canvas/60">
-                  <span className="block h-full rounded-full" style={{ width: `${pctOf(r)}%`, background: r.over ? "var(--color-danger)" : tone.bar }} />
+                  <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: over ? "var(--color-danger)" : tone.bar }} />
                 </span>
-                <span className={`text-xs ${r.over ? "font-semibold text-danger" : ""}`} style={r.over ? undefined : { opacity: 0.8 }}>
-                  {r.statusText}
+                {inline ? (
+                  <label className={`flex h-9 items-center rounded-lg border bg-surface px-2 text-sm text-ink ${draft.parsed[r.id!] === null ? "border-danger" : "border-line"}`}>
+                    <span className="mr-1 shrink-0 whitespace-nowrap text-xs text-muted">Budget $</span>
+                    <input
+                      inputMode="decimal"
+                      aria-label={`${r.name} budget`}
+                      value={draft.values[r.id!] ?? ""}
+                      onChange={(e) => draft.setValues((v) => ({ ...v, [r.id!]: e.target.value }))}
+                      className="h-full w-full min-w-0 bg-transparent outline-none"
+                    />
+                  </label>
+                ) : null}
+                <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
+                  {text}
                 </span>
               </li>
             );
           })}
         </ul>
       )}
+      {budget && <BudgetDrawer open={drawer} onClose={() => setDrawer(false)} draft={draft} {...budget} />}
     </section>
   );
 }

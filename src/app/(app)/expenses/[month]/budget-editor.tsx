@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Drawer } from "@/components/drawer";
 import { SaveStatus } from "@/components/save-status";
 import { budgetStatus } from "@/engines/budget";
@@ -11,13 +11,7 @@ import { previousBudgetAction, saveBudgetAction } from "@/server/actions/budgets
 
 const toInput = (minor: number) => (minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2));
 
-export function BudgetEditor({
-  month,
-  categories,
-  amounts,
-  actuals,
-  source,
-}: {
+export interface BudgetEditorProps {
   month: string;
   categories: { id: string; name: string }[];
   /** category id → current budget (minor) */
@@ -25,9 +19,15 @@ export function BudgetEditor({
   /** category name → actual spend this month (minor), absent when not recorded */
   actuals: Record<string, number> | null;
   source: "month" | "default";
-}) {
-  const [open, setOpen] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(categories.map((c) => [c.id, toInput(amounts[c.id] ?? 0)])));
+}
+
+/** The budget being edited: one text value per category, validated, with the save / copy actions. Shared by the drawer and the inline card editor. */
+export function useBudgetDraft({ month, categories, amounts }: Pick<BudgetEditorProps, "month" | "categories" | "amounts">) {
+  const initial = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, toInput(amounts[c.id] ?? 0)])), [categories, amounts]);
+  const initialKey = JSON.stringify(initial);
+  const [values, setValues] = useState<Record<string, string>>(initial);
+  // After a save the server sends new amounts; follow them.
+  useEffect(() => setValues(initial), [initialKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = useAction(saveBudgetAction, { success: "Budget saved" });
   const copy = useAction(previousBudgetAction, { success: "Copied last month's budget — review and save" });
   const parsed = useMemo(
@@ -36,29 +36,34 @@ export function BudgetEditor({
   );
   const invalid = categories.filter((c) => parsed[c.id] === null || (parsed[c.id] ?? 0) < 0);
   const total = categories.reduce((s, c) => s + (parsed[c.id] ?? 0), 0);
-  const actualTotal = actuals ? Object.values(actuals).reduce((a, b) => a + b, 0) : null;
 
-  async function submit(scope: "month" | "default") {
-    if (invalid.length) return;
+  async function submit(scope: "month" | "default"): Promise<boolean> {
+    if (invalid.length) return false;
     const res = await save.run({ month, scope, amounts: categories.map((c) => ({ categoryId: c.id, amountMinor: parsed[c.id]! })), expected: amounts });
-    if (res?.ok) setOpen(false);
+    return !!res?.ok;
   }
+  async function copyPrevious() {
+    const r = await copy.run({ month });
+    if (r?.ok) setValues(Object.fromEntries(categories.map((c) => [c.id, toInput(r.data.amounts[c.id] ?? 0)])));
+  }
+  return { values, setValues, parsed, invalid, total, save, copy, submit, copyPrevious, reset: () => setValues(initial) };
+}
 
+export type BudgetDraft = ReturnType<typeof useBudgetDraft>;
+
+/** Opens the side drawer: used in list view. */
+export function BudgetDrawer({ open, onClose, draft, month, categories, actuals, source }: { open: boolean; onClose: () => void; draft: BudgetDraft } & Omit<BudgetEditorProps, "amounts">) {
+  const { values, setValues, parsed, invalid, total, save, copy } = draft;
+  const actualTotal = actuals ? Object.values(actuals).reduce((a, b) => a + b, 0) : null;
   return (
     <>
-      <button onClick={() => setOpen(true)} className="h-9 rounded-lg px-3 text-sm font-medium text-brand hover:bg-forest-50">
-        Edit budget
-      </button>
-      <Drawer open={open} onClose={() => setOpen(false)} title={`Budget · ${monthLabel(month)}`}>
+      <Drawer open={open} onClose={onClose} title={`Budget · ${monthLabel(month)}`}>
         <p className="mb-4 text-sm text-muted">
           {source === "month" ? "This month has its own budget." : "This month follows the default budget."} Saving as the default affects this and future months that don&apos;t have their own budget; past months keep theirs.
         </p>
         <button
           disabled={copy.pending}
-          onClick={async () => {
-            const r = await copy.run({ month });
-            if (r?.ok) setValues(Object.fromEntries(categories.map((c) => [c.id, toInput(r.data.amounts[c.id] ?? 0)])));
-          }}
+          onClick={draft.copyPrevious}
           className="mb-4 h-10 rounded-lg border border-line px-3 text-sm hover:bg-forest-50"
         >
           Copy last month
@@ -109,10 +114,10 @@ export function BudgetEditor({
         </table>
         {invalid.length > 0 && <p className="mt-3 text-sm text-danger">Fix: {invalid.map((c) => c.name).join(", ")} (amounts like 100 or 100.50, not negative).</p>}
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button disabled={save.pending || invalid.length > 0} onClick={() => submit("month")} className="h-11 rounded-xl bg-forest-700 px-4 text-sm font-medium text-white disabled:opacity-60">
+          <button disabled={save.pending || invalid.length > 0} onClick={async () => { if (await draft.submit("month")) onClose(); }} className="h-11 rounded-xl bg-forest-700 px-4 text-sm font-medium text-white disabled:opacity-60">
             Save for {monthLabel(month)} only
           </button>
-          <button disabled={save.pending || invalid.length > 0} onClick={() => submit("default")} className="h-11 rounded-xl border border-line px-4 text-sm font-medium hover:bg-forest-50 disabled:opacity-60">
+          <button disabled={save.pending || invalid.length > 0} onClick={async () => { if (await draft.submit("default")) onClose(); }} className="h-11 rounded-xl border border-line px-4 text-sm font-medium hover:bg-forest-50 disabled:opacity-60">
             Save as default from {monthLabel(month, "short")} on
           </button>
           <SaveStatus state={save.state} />

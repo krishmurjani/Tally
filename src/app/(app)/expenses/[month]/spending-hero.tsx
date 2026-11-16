@@ -57,9 +57,9 @@ export function SpendingHero({
   const previousName = monthLabel(addMonths(month, -1)).split(" ")[0];
 
   return (
-    <section className="relative rounded-3xl bg-hero p-5 text-[#f7f5ef] sm:p-8">
+    <section className={`relative rounded-3xl bg-hero p-5 text-[#f7f5ef] sm:p-8 ${closed ? "sm:pt-16" : ""}`}>
       {closed && (
-        <span className="absolute right-4 top-4 inline-flex h-7 items-center gap-1.5 rounded-full bg-white/15 px-2.5 text-xs font-medium sm:right-6 sm:top-6">
+        <span className="absolute right-4 top-4 inline-flex h-7 items-center gap-1.5 rounded-full bg-[#f6c453]/20 px-2.5 text-xs font-medium text-[#f7dc8a] ring-1 ring-[#f6c453]/35 sm:right-6 sm:top-5">
           <svg aria-hidden="true" viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="4.5" y="9" width="11" height="7.5" rx="1.5" />
             <path d="M7 9V6.8a3 3 0 0 1 6 0V9" />
@@ -124,7 +124,7 @@ export function SpendingHero({
 
       {top.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-white/15 pt-5">
-          <span className="mr-1 text-sm text-[#d8e8dd]/80">Biggest:</span>
+          <span className="mr-1 text-sm text-[#d8e8dd]/80">Biggest besides rent:</span>
           {top.map((t) => (
             <span key={t.name} className="inline-flex h-8 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-medium">
               <span aria-hidden="true" className="size-2 rounded-full" style={{ background: t.dot }} />
