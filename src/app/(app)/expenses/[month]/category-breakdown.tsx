@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { CategoryIcon } from "@/components/category-icon";
 import { SaveStatus } from "@/components/save-status";
 import { budgetStatus } from "@/engines/budget";
 import { monthLabel } from "@/engines/dates";
@@ -93,6 +94,9 @@ export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: 
     }
   };
   const pctOf = (r: CategoryRow) => (r.budgetMinor > 0 ? Math.min(100, Math.round((r.actualMinor / r.budgetMinor) * 100)) : r.actualMinor > 0 ? 100 : 0);
+  // While editing, the total follows the numbers being typed.
+  const totalBudget = editing && budget ? draft.total : rows.reduce((a, r) => a + r.budgetMinor, 0);
+  const totalSpent = rows.reduce((a, r) => a + r.actualMinor, 0);
   const finishEdit = () => {
     setEditing(false);
     draft.reset();
@@ -116,6 +120,17 @@ export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: 
           )}
           <ViewToggle view={view} onChange={choose} />
         </div>
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-faint">Total budget</p>
+          <p className="text-4xl font-bold leading-tight tracking-tight tabular-nums sm:text-5xl">{formatUSD(totalBudget, { decimals: "auto" })}</p>
+        </div>
+        <p className={`pb-1 text-sm tabular-nums ${totalSpent > totalBudget && totalBudget > 0 ? "font-medium text-danger" : "text-muted"}`}>
+          Spent {formatUSD(totalSpent)}
+          {totalBudget > 0 && (totalSpent > totalBudget ? ` · ${formatUSD(totalSpent - totalBudget)} over` : ` · ${formatUSD(totalBudget - totalSpent)} left`)}
+        </p>
       </div>
 
       {budget && editing && view === "cards" && (
@@ -189,7 +204,12 @@ export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: 
             return (
               <li key={r.name} className="flex min-w-0 flex-col gap-2 rounded-2xl p-3.5 sm:p-4" style={{ background: tone.background, border: `1px solid ${tone.border}`, color: tone.color }}>
                 <span className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-sm font-semibold">{r.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/10">
+                      <CategoryIcon name={r.name} size={19} />
+                    </span>
+                    <span className="truncate text-sm font-semibold">{r.name}</span>
+                  </span>
                   {inline && <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide opacity-70">Budget</span>}
                 </span>
                 {inline ? (
