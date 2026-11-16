@@ -84,6 +84,9 @@ body {
   outline-offset: 2px;
 }
 
+/* Tab bars: until the sliding highlight has been placed, the selected tab paints its own background. */
+.tabbar[data-ready="false"] > [aria-current="page"] { background: var(--tab-pill); }
+
 /* Sliders: a visible filled track and a round, easy-to-grab thumb in both themes. --fill is set per slider (0-100%). */
 input[type="range"].range {
   -webkit-appearance: none;
