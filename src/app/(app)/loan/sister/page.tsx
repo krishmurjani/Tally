@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { sisterLedger } from "@/engines/loan/sister";
 import { formatINR } from "@/engines/money";
-import { Card, Stat } from "@/components/ui";
+import { Hero, HeroLabel, HeroNumber, HeroStats } from "@/components/hero";
+import { Card } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { loadLoanLedgers } from "@/server/repos/loan";
@@ -16,17 +17,17 @@ export default async function SisterPage() {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">Paying my sister back never reduces the loan — this ledger is separate from lender payments.</p>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <Stat label="She paid the lender" value={formatINR(l.fundedMinor)} hint="Paid lender payments with payer Sister (bounce excluded)" />
-        </Card>
-        <Card>
-          <Stat label="I've reimbursed" value={formatINR(l.reimbursedMinor)} />
-        </Card>
-        <Card>
-          <Stat label={l.creditMinor > 0 ? "I've overpaid her by" : "I owe her"} value={formatINR(l.creditMinor > 0 ? l.creditMinor : l.owedMinor)} />
-        </Card>
-      </div>
+      <Hero>
+        <HeroLabel>{l.creditMinor > 0 ? "I've overpaid her by" : "I owe her"}</HeroLabel>
+        <HeroNumber>{formatINR(l.creditMinor > 0 ? l.creditMinor : l.owedMinor, { decimals: "never" })}</HeroNumber>
+        <HeroStats
+          items={[
+            { label: "She paid the lender", value: formatINR(l.fundedMinor), hint: "Lender payments with payer Sister (bounces excluded)" },
+            { label: "I've reimbursed", value: formatINR(l.reimbursedMinor) },
+          ]}
+        />
+      </Hero>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title={`Not yet reimbursed · ${l.unreimbursed.length}`}>
           {l.unreimbursed.length === 0 ? (

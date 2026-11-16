@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <ToastProvider>
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-line bg-canvas/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2">
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2 sm:px-6 lg:px-10">
           <div className="order-1 flex items-center gap-2">
             <Logo size={34} />
             <span className="text-lg font-semibold tracking-tight">Tally</span>
@@ -32,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:py-8">{children}</main>
+      <main className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
     </div>
     </ToastProvider>
   );

@@ -3,7 +3,8 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SaveStatus, type SaveState } from "@/components/save-status";
 import { Select } from "@/components/select";
-import { Badge, Card, Stat } from "@/components/ui";
+import { Hero, HeroChip, HeroLabel, HeroNumber, HeroRing, HeroStats } from "@/components/hero";
+import { Badge, Card } from "@/components/ui";
 import { monthLabel } from "@/engines/dates";
 import { planPayoff, requiredMonthlyContribution, usdToInr, effectiveFx, type PlannerBase, type PlannerWarning } from "@/engines/loan/planner";
 import { linkDrift, plannerInputs, type Scenario } from "@/engines/loan/scenario";
@@ -305,25 +306,34 @@ export function Planner({
       </div>
 
       <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <Stat
-              label="Paid off"
-              value={result.plan.payoffDate ? monthLabel(result.plan.payoffDate.slice(0, 7)) : "Not within 50 years"}
-              hint={result.plan.payoffDate ? `${futurePeriods.length} months from ${inputs.startDate}` : undefined}
+        <Hero>
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+            <div className="min-w-0">
+              <HeroLabel>Paid off</HeroLabel>
+              <HeroNumber>{result.plan.payoffDate ? monthLabel(result.plan.payoffDate.slice(0, 7)) : "Not within 50 years"}</HeroNumber>
+              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-forest-100">
+                <HeroChip>Estimate</HeroChip>
+                {result.plan.payoffDate && <span>{futurePeriods.length} months from {inputs.startDate}</span>}
+              </p>
+            </div>
+            <HeroRing
+              fraction={baseInterest > 0 ? Math.max(0, baseInterest - planInterest) / baseInterest : 0}
+              label={`${baseInterest > 0 ? Math.round((Math.max(0, baseInterest - planInterest) / baseInterest) * 100) : 0}%`}
+              caption="of future interest saved"
+              ariaLabel="Share of future interest saved by the plan"
             />
-          </Card>
-          <Card>
-            <Stat label="Future interest" value={inr(planInterest)} hint={`Schedule only: ${inr(baseInterest)}`} />
-          </Card>
-          <Card>
-            <Stat
-              label="Interest saved"
-              value={inr(Math.max(0, baseInterest - planInterest))}
-              hint={result.baseline.payoffDate ? `Schedule only finishes ${monthLabel(result.baseline.payoffDate.slice(0, 7))}` : "Schedule alone doesn't finish"}
-            />
-          </Card>
-        </div>
+          </div>
+          <HeroStats
+            items={[
+              { label: "Future interest", value: inr(planInterest), hint: `Schedule only: ${inr(baseInterest)}` },
+              {
+                label: "Interest saved",
+                value: inr(Math.max(0, baseInterest - planInterest)),
+                hint: result.baseline.payoffDate ? `Schedule only finishes ${monthLabel(result.baseline.payoffDate.slice(0, 7))}` : "Schedule alone doesn't finish",
+              },
+            ]}
+          />
+        </Hero>
 
         {(result.warnings.length > 0 || (modelFinal && scheduleFinalMonth && modelFinal !== scheduleFinalMonth)) && (
           <Card title="Warnings">

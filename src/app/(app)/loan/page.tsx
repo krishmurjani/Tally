@@ -5,7 +5,8 @@ import { amortize } from "@/engines/loan/amortize";
 import { effectiveStatus, paidTotals } from "@/engines/loan/ledger";
 import { sisterLedger } from "@/engines/loan/sister";
 import { formatINR } from "@/engines/money";
-import { Badge, Card, Stat } from "@/components/ui";
+import { Hero, HeroChip, HeroLabel, HeroNumber, HeroStats } from "@/components/hero";
+import { Badge, Card } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { loadLoanFacts, loadLoanLedgers } from "@/server/repos/loan";
@@ -52,20 +53,25 @@ export default async function LoanPage() {
           </Link>
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <Stat label="Estimated balance today" value={formatINR(balanceToday, { decimals: "never" })} hint="Estimate, not lender ledger" />
-        </Card>
-        <Card>
-          <Stat label="Next payment" value={next ? formatINR(next.amountMinor) : "None planned"} hint={next ? `Due ${next.dueDate} · planned, not paid` : undefined} />
-        </Card>
-        <Card>
-          <Stat label="Owed to sister" value={formatINR(sister.owedMinor)} hint={sister.creditMinor ? `Credit ${formatINR(sister.creditMinor)}` : `Funded ${formatINR(sister.fundedMinor)}`} />
-        </Card>
-        <Card>
-          <Stat label="Paid to lender so far" value={formatINR(totals.totalPaidMinor)} hint={`${formatINR(totals.byPayer.krish)} by me · ${formatINR(totals.byPayer.sister)} by sister`} />
-        </Card>
-      </div>
+      <Hero>
+        <div>
+          <div className="min-w-0">
+            <HeroLabel>Estimated balance today</HeroLabel>
+            <HeroNumber>{formatINR(balanceToday, { decimals: "never" })}</HeroNumber>
+            <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-forest-100">
+              <HeroChip>Estimate, not lender ledger</HeroChip>
+              {currentRate && <span>at {currentRate.annualPercent}% floating</span>}
+            </p>
+          </div>
+        </div>
+        <HeroStats
+          items={[
+            { label: "Next payment", value: next ? formatINR(next.amountMinor) : "None planned", hint: next ? `Due ${next.dueDate} · planned, not paid` : undefined },
+            { label: "Paid to lender so far", value: formatINR(totals.totalPaidMinor, { decimals: "never" }), hint: `${formatINR(totals.byPayer.krish, { decimals: "never" })} by me · ${formatINR(totals.byPayer.sister, { decimals: "never" })} by sister` },
+            { label: "Owed to sister", value: formatINR(sister.owedMinor, { decimals: "never" }), hint: sister.creditMinor ? `Credit ${formatINR(sister.creditMinor)}` : `Funded ${formatINR(sister.fundedMinor, { decimals: "never" })}` },
+          ]}
+        />
+      </Hero>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Repayment schedule" action={<Provenance label={schedule.provenance} />}>

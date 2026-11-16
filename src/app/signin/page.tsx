@@ -18,7 +18,6 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <div className="relative w-full max-w-sm animate-pop-in rounded-3xl border border-line bg-surface p-8 text-center shadow-[0_8px_40px_-12px_rgba(27,66,49,0.25)] sm:p-10">
         <Logo size={64} className="mx-auto drop-shadow-sm" />
         <h1 className="mt-5 text-2xl font-semibold tracking-tight">Tally</h1>
-        <p className="mt-1 text-sm text-muted">Your money, counted.</p>
         {message && (
           <p role="alert" className="mt-6 rounded-xl border border-danger/30 bg-danger-50 px-3 py-2 text-left text-sm text-danger">
             {message}

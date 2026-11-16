@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { paidTotals } from "@/engines/loan/ledger";
 import { formatINR } from "@/engines/money";
-import { Card, Stat } from "@/components/ui";
+import { Hero, HeroLabel, HeroNumber, HeroStats } from "@/components/hero";
+import { Card } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { loadLoanLedgers } from "@/server/repos/loan";
@@ -15,20 +16,18 @@ export default async function PaymentsPage() {
   const t = paidTotals(payments);
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <Stat label="Paid by me" value={formatINR(t.byPayer.krish)} />
-        </Card>
-        <Card>
-          <Stat label="Paid by sister" value={formatINR(t.byPayer.sister)} />
-        </Card>
-        <Card>
-          <Stat label="Planned (not paid)" value={formatINR(t.plannedMinor)} />
-        </Card>
-        <Card>
-          <Stat label="Bounced" value={String(t.bouncedCount)} hint="Kept for audit, excluded from totals" />
-        </Card>
-      </div>
+      <Hero>
+        <HeroLabel>Paid to the lender so far</HeroLabel>
+        <HeroNumber>{formatINR(t.totalPaidMinor, { decimals: "never" })}</HeroNumber>
+        <HeroStats
+          items={[
+            { label: "Paid by me", value: formatINR(t.byPayer.krish) },
+            { label: "Paid by sister", value: formatINR(t.byPayer.sister) },
+            { label: "Planned (not paid)", value: formatINR(t.plannedMinor) },
+            { label: "Bounced", value: String(t.bouncedCount), hint: "Kept for audit, excluded from totals" },
+          ]}
+        />
+      </Hero>
       <Card title="Lender payment ledger">
         <PaymentsTable payments={payments} />
       </Card>
