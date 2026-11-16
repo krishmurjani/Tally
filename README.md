@@ -104,6 +104,31 @@ Without a key you can still use **CSV import** (Expenses → Use CSV import → 
 
 Limits worth knowing: Vercel caps request/response bodies at 4.5 MB. The web backup is gzip-compressed for that reason; for very large backups or restores use `pnpm backup` / `pnpm restore` locally against the production `DATABASE_URL`.
 
+## Inbox API (for assistants)
+
+An assistant can send expenses to Tally for review. Create a token in **Settings → API access** (shown once; put it straight into the assistant's secure vault).
+
+```
+POST /api/inbox            Authorization: Bearer tly_…      (add ?dryRun=true to check without saving)
+GET  /api/inbox/meta       the category names Tally uses, and the limits
+```
+
+```json
+{ "items": [
+  { "externalId": "2026-11-16-wholefoods-4f2a", "date": "2026-11-16", "description": "Whole Foods",
+    "amount": "84.37", "currency": "USD", "category": "Groceries", "type": "private" },
+  { "externalId": "2026-11-16-dinner-9c1b", "date": "2026-11-16", "description": "Dinner", "amount": "120.00",
+    "category": "Dining Out", "type": "shared", "group": "Apartment", "paidBy": "me",
+    "split": [ { "person": "me", "owes": "40.00" }, { "person": "Alex", "owes": "80.00" } ] }
+] }
+```
+
+- Every item needs a stable `externalId`; resending it is ignored, so retries are safe.
+- The reply has a status per item: `created`, `duplicate_ignored`, `invalid` (with reasons); with `dryRun`: `would_create`, `would_ignore_duplicate`. Items that need a decision list their `blockers`.
+- Amounts are strings with at most two decimals. A shared split must add up to the total exactly.
+- Items land in the **Inbox** as drafts. Nothing counts until you approve. Shared expenses can't be approved yet (posting to Splitwise is the next step).
+- Up to 100 items and 256 KB per request. Revoke a token in the same settings page.
+
 ## Backups
 
 - **Web**: Settings → Backup & export → *Download backup* (versioned `.json.gz` of everything) and per-area CSVs (expenses by month, category summaries, income, lender payments, reimbursements, projection schedule).

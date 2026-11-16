@@ -57,9 +57,14 @@ describe("every entry point checks the owner server-side", () => {
     }
   });
 
-  it("each route handler (other than Auth.js's own) calls requireOwner", () => {
+  it("each route handler (other than Auth.js's own) calls requireOwner — or, for the Inbox API only, checks a bearer token", () => {
     const routes = files.filter((f) => /route\.ts$/.test(f) && !f.includes(`${join("api", "auth")}`));
-    for (const f of routes) expect(readFileSync(f, "utf8"), relative(root, f)).toMatch(/requireOwner\(/);
+    for (const f of routes) {
+      const src = readFileSync(f, "utf8");
+      // The token-protected Inbox routes are the only ones allowed to skip the session check, and they must verify the token.
+      const isInboxApi = f.includes(`${join("api", "inbox")}`);
+      expect(src, relative(root, f)).toMatch(isInboxApi ? /ownerFromBearer\(/ : /requireOwner\(/);
+    }
   });
 
   it("each signed-in page calls requireOwner*", () => {

@@ -308,6 +308,62 @@ export const manualExpenses = pgTable(
   ],
 );
 
+/** Access tokens for the batch endpoint (POST /api/inbox). Only a SHA-256 hash is kept; the token itself is shown once. */
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    name: text("name").notNull(),
+    /** SHA-256 hex of the token. Tokens are 256 random bits, so a fast hash is enough. */
+    tokenHash: text("token_hash").notNull(),
+    /** First characters, so tokens can be told apart in the list. Not secret. */
+    prefix: text("prefix").notNull(),
+    lastUsedAt: ts("last_used_at"),
+    revokedAt: ts("revoked_at"),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("api_tokens_hash").on(t.tokenHash)],
+);
+
+/** Expenses sent by an assistant (e.g. Instinct) waiting for review. Nothing here counts until it is approved. */
+export const inboxItems = pgTable(
+  "inbox_items",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    /** The sender's own stable ID; resending the same one is ignored. */
+    externalId: text("external_id").notNull(),
+    date: day("date").notNull(),
+    description: text("description").notNull(),
+    /** Positive minor units of `currency`. */
+    amountMinor: money("amount_minor").notNull(),
+    currency: text("currency").notNull().default("USD"),
+    kind: text("kind", { enum: ["private", "shared"] }).notNull(),
+    /** What the sender called the category, and the category it resolved to (null = needs choosing). */
+    categoryName: text("category_name"),
+    categoryId: categoryRef(),
+    note: text("note"),
+    groupName: text("group_name"),
+    paidBy: text("paid_by"),
+    /** For shared expenses: who owes what, in minor units. Adds up to amountMinor. */
+    split: jsonb("split").$type<{ person: string; owesMinor: number }[]>(),
+    status: text("status", { enum: ["pending", "approved", "rejected"] }).notNull().default("pending"),
+    manualExpenseId: uuid("manual_expense_id").references(() => manualExpenses.id, { onDelete: "set null" }),
+    /** Exactly what was sent, for reconciling duplicates. */
+    raw: jsonb("raw").notNull(),
+    decidedAt: ts("decided_at"),
+    createdAt: created(),
+    updatedAt: updated(),
+    version: version(),
+  },
+  (t) => [
+    uniqueIndex("inbox_items_external").on(t.ownerId, t.externalId),
+    index("inbox_items_owner_status").on(t.ownerId, t.status),
+    check("inbox_items_positive", sql`${t.amountMinor} > 0`),
+  ],
+);
+
 export const recurringRules = pgTable(
   "recurring_rules",
   {

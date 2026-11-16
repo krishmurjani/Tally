@@ -12,6 +12,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except sign-in, Auth.js routes, Next internals and static files.
-  matcher: ["/((?!signin|api/auth|_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|icon|apple-icon).*)"],
+  // Everything except sign-in, Auth.js routes, the token-protected Inbox API (it checks its own bearer token), Next internals and static files.
+  matcher: ["/((?!signin|api/auth|api/inbox|_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|icon|apple-icon).*)"],
 };

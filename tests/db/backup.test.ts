@@ -80,6 +80,20 @@ describe.skipIf(!up)("backup & restore (DB)", () => {
     expect(v.summary!.totalMinor).toBe(aug);
   });
 
+  it("the Inbox is backed up and restored; an older backup without it still restores", async () => {
+    const { ingestInbox } = await import("@/server/repos/inbox");
+    await ingestInbox(db, owner, [{ externalId: "bk-1", date: "2026-11-16", description: "Backup test", amount: "9.99", category: "Groceries" }], { dryRun: false });
+    const b = roundTrip(await createBackup(db, owner));
+    expect(b.tables.inboxItems).toHaveLength(1);
+    await restoreBackup(db, owner, b, { mode: "replace", confirm: "REPLACE" });
+    expect(await db.select().from(schema.inboxItems)).toHaveLength(1);
+    // A backup made before the Inbox existed has no such table: it decodes as empty rather than being refused.
+    const old = JSON.parse(JSON.stringify(b)) as Record<string, Record<string, unknown>>;
+    delete old.tables!.inboxItems;
+    const decoded = decodeBackup(encodeBackup(old as unknown as Backup));
+    expect(decoded.tables.inboxItems).toEqual([]);
+  });
+
   it("merge adds only what's missing and never overwrites rows that differ", async () => {
     const b = roundTrip(await createBackup(db, owner));
     await db.delete(schema.incomeEntries);

@@ -4,9 +4,12 @@ import { Nav } from "@/components/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ToastProvider } from "@/components/toast";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
+import { getDb } from "@/server/db/client";
+import { pendingInboxCount } from "@/server/repos/inbox";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const owner = await requireOwnerOrRedirect();
+  const inboxCount = await pendingInboxCount(getDb(), owner);
   return (
     <ToastProvider>
     <div className="min-h-dvh">
@@ -16,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Logo size={34} />
             <span className="text-lg font-semibold tracking-tight">Tally</span>
           </div>
-          <Nav />
+          <Nav inboxCount={inboxCount} />
           <div className="order-2 flex items-center gap-2 sm:order-3">
           <ThemeToggle />
           <form

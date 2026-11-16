@@ -134,6 +134,17 @@ Each item is something I decided without an explicit instruction. Mark any you d
 86. **After a part payment**, the portal offers "keep tenure, reduce EMI" or "keep EMI, reduce tenure". The planner has both; the default is to keep the EMI and finish sooner, which costs the least interest. "Reduce EMI" recalculates the EMI each month to end on the lender's final month and applies to one-off part payments; ongoing monthly extras still pay it off sooner.
 87. **Still available to withdraw: ₹1,15,030** (₹75,00,000 sanctioned − ₹73,84,970 disbursed). A fifth disbursement would change the schedule; the planner doesn't assume one.
 
+### Inbox API for assistants (2026-11-16)
+88. **Purpose.** An assistant (Instinct) logs expenses faster by POSTing a batch to Tally instead of filling in Splitwise's web form one at a time. Step 1 stores them as drafts in an Inbox; nothing is posted to Splitwise yet. Posting to Splitwise (group, payer, uneven split) is step 2.
+89. **Drafts, never auto-counted.** Items sit in `inbox_items` as `pending`. Nothing counts toward a month until you approve it. Approving a private USD item creates a normal manual expense (idempotency key `inbox:<id>`, so approval can't double-add).
+90. **Token auth, not your login.** `POST /api/inbox` and `GET /api/inbox/meta` need `Authorization: Bearer tly_…`. Tokens are 256 random bits, shown once, stored only as a SHA-256 hash, individually revocable, and can't read data or approve anything. They're created in Settings → API access. The proxy lets these two routes through to check the token themselves; the route-guard test allows that exemption only for them.
+91. **Duplicates.** The sender's `externalId` is unique per owner. Resending it is answered `duplicate_ignored` (with the original's status and whether the resend differs), including twice inside one request and when two identical requests race.
+92. **Per-item answers.** `created`, `duplicate_ignored`, `invalid` (with reasons, not stored), and with `dryRun` the `would_` versions, which write nothing. A bad item never blocks the rest of its batch. Up to 100 items and 256 KB per request.
+93. **Never guess.** An unknown or missing category isn't matched fuzzily; the draft stays and you choose it in the Inbox. A shared item's split must add up to the total to the cent or the item is `invalid`. Amounts are strings with at most two decimals.
+94. **What can't be approved yet** (shown as chips, computed fresh): shared expenses (Splitwise posting isn't built), non-USD amounts (private spending is USD-only), no category, and a closed month.
+95. **Backups** include the Inbox; API tokens are deliberately left out (re-issue them after a restore). Older backups without the Inbox still restore.
+96. **Open for step 2:** posting to Splitwise needs the group and member list from its API, a preview of everyone's share, a confirm step, and recording the Splitwise expense id so the next sync doesn't count it twice.
+
 ## Backup, export, PWA, polish (Phase 7)
 70. **Backup format**: `{ format: "tally-backup", version: 1, exportedAt, owner, tables }`. It covers every owner table, including raw Splitwise JSON, imported CSV text and the audit log. Sync-run history is not backed up, and each expense's link to its sync run is cleared. The web download is gzip-compressed (`.json.gz`) to stay under Vercel's 4.5 MB response limit; `pnpm backup` has no limit.
 71. **Restore** always runs a dry run first, with per-table counts of new / identical / different / only-in-database rows. Then either:

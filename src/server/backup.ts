@@ -32,6 +32,7 @@ export const BACKUP_TABLES = {
   flagDismissals: schema.flagDismissals,
   usdConfirmations: schema.usdConfirmations,
   manualExpenses: schema.manualExpenses,
+  inboxItems: schema.inboxItems,
   recurringRules: schema.recurringRules,
   recurringOverrides: schema.recurringOverrides,
   months: schema.months,
@@ -48,6 +49,8 @@ export const BACKUP_TABLES = {
 } as const;
 
 export type BackupTable = keyof typeof BACKUP_TABLES;
+/** Added later: backups made before them are still valid. API tokens are deliberately not backed up (re-issue them). */
+const OPTIONAL_TABLES: BackupTable[] = ["inboxItems"];
 type Row = Record<string, unknown> & { id: string };
 
 export interface Backup {
@@ -117,6 +120,8 @@ export function decodeBackup(bytes: Uint8Array): Backup {
   if (b.version !== BACKUP_VERSION) throw new UserFacingError(`Backup version ${String(b.version)} isn't supported by this version of Tally (expects ${BACKUP_VERSION}).`);
   if (!b.owner?.email || !b.tables || typeof b.tables !== "object") throw new UserFacingError("The backup is incomplete.");
   for (const name of Object.keys(BACKUP_TABLES) as BackupTable[]) {
+    // Tables added after the first backups were made are simply empty in older files.
+    if (OPTIONAL_TABLES.includes(name) && (b.tables as Record<string, unknown>)[name] === undefined) (b.tables as Record<string, unknown>)[name] = [];
     const rows = (b.tables as Record<string, unknown>)[name];
     if (!Array.isArray(rows)) throw new UserFacingError(`The backup is missing the ${name} table.`);
     if (rows.some((r) => !r || typeof r !== "object" || typeof (r as Row).id !== "string")) throw new UserFacingError(`The backup's ${name} table has rows without ids.`);

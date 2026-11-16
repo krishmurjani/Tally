@@ -53,6 +53,14 @@ export default async function SettingsPage() {
       <Card title="Large expenses">
         <ThresholdForm initialMinor={settings.largeExpenseThresholdMinor} initialVersion={settings.version} />
       </Card>
+      <Card title="API access">
+        <p className="text-sm text-muted">Let an assistant (like Instinct) send expenses to your Inbox for review.</p>
+        <p className="mt-3">
+          <Link href="/settings/api" className="font-medium text-brand hover:underline">
+            Manage tokens →
+          </Link>
+        </p>
+      </Card>
       <Card title="Categories">
         <CategoriesForm categories={categories.map((c) => ({ id: c.id, name: c.name, kind: c.kind }))} />
       </Card>

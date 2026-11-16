@@ -43,6 +43,13 @@
       "when": 1794796111149,
       "tag": "0005_loan_rollup",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794809022577,
+      "tag": "0006_inbox_and_api_tokens",
+      "breakpoints": true
     }
   ]
 }
