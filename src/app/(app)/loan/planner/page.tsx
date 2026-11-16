@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { todayNY } from "@/engines/dates";
 import { defaultScenario } from "@/engines/loan/scenario";
 import type { PlannerBase } from "@/engines/loan/planner";
+import { finalDueDate, portalView, rollupDate } from "@/engines/loan/portal";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
 import { monthlySeries } from "@/server/month-data";
@@ -15,28 +16,48 @@ export default async function PlannerPage() {
   const db = getDb();
   const [{ rates, schedule }, { payments }, saved, series] = await Promise.all([loadLoanFacts(db, owner), loadLoanLedgers(db, owner), loadScenario(db, owner), monthlySeries(db, owner)]);
   const today = todayNY();
-  const currentRate = ([...rates].filter((r) => r.effectiveFrom <= today).at(-1) ?? rates[0])?.annualPercent ?? "11.55";
+  const currentRate = ([...rates].filter((r) => r.effectiveFrom <= today).at(-1) ?? rates[0])?.annualPercent ?? "11.8";
+  const recorded = payments.map(({ version: _v, interestMinor: _i, principalMinor: _p, ...p }) => p);
+  const rollupOn = rollupDate(schedule.phases);
   const base: PlannerBase = {
     openingBalanceMinor: schedule.openingBalanceMinor,
     asOf: schedule.asOf,
     paymentDay: schedule.paymentDay,
     phases: schedule.phases,
-    recordedPayments: payments.map(({ version: _v, interestMinor: _i, principalMinor: _p, ...p }) => p),
+    recordedPayments: recorded,
     maxMonths: 600,
+    // Credila rounds interest to the whole rupee (agreement cl. 2.3(b)); the part-payment rules need the principal / interest split.
+    interestRounding: "rupee",
+    accrual: schedule.principalAtRollupMinor === null ? undefined : { principalMinor: schedule.principalAtRollupMinor, rollupOn },
+    finalDate: finalDueDate(schedule.finalPaymentMonth, schedule.paymentDay),
   };
+  const portal = portalView(
+    {
+      openingBalanceMinor: schedule.openingBalanceMinor,
+      asOf: schedule.asOf,
+      paymentDay: schedule.paymentDay,
+      phases: schedule.phases,
+      rates: rates.map((r) => ({ effectiveFrom: r.effectiveFrom, annualPercent: r.annualPercent })),
+      principalAtRollupMinor: schedule.principalAtRollupMinor,
+      rollupOn,
+      payments: recorded,
+    },
+    today,
+  );
   const months: LinkOption[] = [...series]
     .reverse()
     .map((p) => ({ month: p.month, incomeMinor: p.incomeMinor, expensesMinor: p.hasSpending ? p.totalMinor : null, partial: p.partial }));
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        An estimate, not the lender&apos;s ledger. Changes save automatically. Recorded payments up to today come from the payments ledger; from the start date on, the schedule plus your extras apply.
+        An estimate, not the lender&apos;s ledger — but built on the lender&apos;s own schedule (it reproduces it to within ₹3 a month). Changes save automatically. Recorded payments up to today come from the payments ledger; from the start date on, the schedule plus your extras apply.
       </p>
       <Planner
         base={base}
         initial={saved ? { inputs: saved.inputs, version: saved.version } : { inputs: defaultScenario(today, currentRate), version: null }}
         months={months}
         scheduleFinalMonth={schedule.finalPaymentMonth}
+        portal={portal ? { ...portal.quote, lastDueDate: portal.lastDueDate } : null}
         rateNote={`Current recorded rate: ${currentRate}% (floating). Change it here to test scenarios; record real changes on the Overview tab.`}
       />
     </div>

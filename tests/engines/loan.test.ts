@@ -153,7 +153,7 @@ describe("Loan engine (spec test 12)", () => {
     expect(r.periods[2]!.interestMinor).toBe(0);
   });
 
-  it("seeded schedule: first projected month is negative amortization (₹9,846 < ₹84,959 interest)", () => {
+  it("seeded schedule: first projected month is negative amortization (₹9,846 < ₹88,301 interest)", () => {
     const s = LOAN_FACTS.schedule;
     const r = amortize({
       openingBalanceMinor: s.openingBalanceMinor,
@@ -164,7 +164,7 @@ describe("Loan engine (spec test 12)", () => {
       projectFrom: "2026-11-14",
       recordedPayments: [...SEED_LENDER_PAYMENTS, ...SEED_PLANNED_PAYMENTS],
     });
-    expect(r.periods[0]).toMatchObject({ date: "2026-10-11", requiredSource: "recorded", paymentMinor: inr(9_846), interestMinor: 8_495_913 });
+    expect(r.periods[0]).toMatchObject({ date: "2026-12-11", requiredSource: "schedule", paymentMinor: inr(9_846), interestMinor: Math.round((s.openingBalanceMinor * 118) / 12000) });
     expect(r.periods[0]!.warnings).toContain("below_interest");
     expect(r.periods.find((p) => p.date === "2027-09-11")!.phase).toBe("emi");
     expect(r.paidOff).toBe(true);
@@ -379,7 +379,6 @@ describe("Planner warnings only cover the plan's own months", () => {
       startDate: "2026-11-15", saveFirstMonths: 0, contributionMode: "all_available",
     };
     const r = planPayoff(base, big);
-    expect(r.plan.periods.slice(0, 2).every((p) => p.warnings.includes("below_interest"))).toBe(true); // Oct/Nov 2026, recorded
     expect(r.warnings.map((w) => w.code)).not.toContain("negative_amortization");
     expect(r.plan.payoffDate).toBe("2028-10-11");
     const scheduleOnly = planPayoff(base, { ...big, contributionMode: "extra" });

@@ -1,5 +1,6 @@
 /**
- * HDFC Credila loan facts and payment history from the build spec, with provenance labels.
+ * HDFC Credila loan facts and payment history, with provenance labels. Updated 2026-11-16 from the lender's own
+ * documents (portal screens, sanction letter, loan agreement, transaction history, repayment schedule).
  * Amounts are INR paise (₹1 = 100). Used by tests and by the seed script.
  */
 import { addMonths, dateInMonth, monthRange } from "../dates";
@@ -15,8 +16,17 @@ export const LOAN_FACTS = {
   lender: "HDFC Credila",
   currency: "INR" as const,
   sanctionedMinor: inr(75_00_000),
-  sanctionedProvenance: "stated by Krish" as Provenance,
-  rate: { effectiveFrom: "2024-07-30", annualPercent: "11.55", provenance: "stated by Krish" as Provenance, note: "Floating rate, previously stated" },
+  sanctionedProvenance: "lender statement" as Provenance,
+  /** The current rate. History is in `rates` (portal: Interest Rate Change; dates are DD/MM/YY there). */
+  rate: { effectiveFrom: "2026-10-11", annualPercent: "11.8", provenance: "lender statement" as Provenance, note: "CBLR 14.1%, spread −2.3%" },
+  rates: [
+    { effectiveFrom: "2024-08-11", annualPercent: "11.5", provenance: "lender statement" as Provenance, note: "CBLR 13.8%, spread −2.3% (the sanction rate)" },
+    { effectiveFrom: "2024-11-11", annualPercent: "11.7", provenance: "lender statement" as Provenance, note: "CBLR 14%, spread −2.3%" },
+    { effectiveFrom: "2025-08-11", annualPercent: "11.5", provenance: "lender statement" as Provenance, note: "CBLR 13.8%, spread −2.3%" },
+    { effectiveFrom: "2026-02-11", annualPercent: "11.4", provenance: "lender statement" as Provenance, note: "CBLR 13.7%, spread −2.3%" },
+    { effectiveFrom: "2026-07-11", annualPercent: "11.55", provenance: "lender statement" as Provenance, note: "CBLR 13.85%, spread −2.3%" },
+    { effectiveFrom: "2026-10-11", annualPercent: "11.8", provenance: "lender statement" as Provenance, note: "CBLR 14.1%, spread −2.3%" },
+  ],
   disbursements: [
     { date: "2024-07-30", amountMinor: inr(45_00_000), note: "Tranche 1", provenance: "lender statement" as Provenance },
     { date: "2024-07-30", amountMinor: inr(1_04_165), note: "Tranche 1 (part)", provenance: "lender statement" as Provenance },
@@ -26,17 +36,22 @@ export const LOAN_FACTS = {
     { date: "2026-01-23", amountMinor: inr(6_10_000), note: "Tranche 4", provenance: "lender statement" as Provenance },
   ],
   schedule: {
-    issuedOn: "2026-09-14",
-    provenance: "imported, unverified" as Provenance,
-    openingBalanceMinor: inr(88_26_923),
-    asOf: "2026-09-11",
+    issuedOn: "2026-11-16",
+    provenance: "lender statement" as Provenance,
+    /** Total outstanding right after the 2026-11-11 instalment (principal + interest not yet paid). */
+    openingBalanceMinor: inr(89_79_727),
+    asOf: "2026-11-11",
     paymentDay: 11,
     phases: [
-      { from: "2026-10-11", kind: "partial_interest" as const, paymentMinor: inr(9_846), label: "Partial interest (PMII)" },
+      { from: "2026-12-11", kind: "partial_interest" as const, paymentMinor: inr(9_846), label: "Partial interest (PMII)" },
       { from: "2027-09-11", kind: "emi" as const, paymentMinor: inr(1_29_537), label: "Full EMI" },
     ],
     partialInterestThrough: "2027-08",
-    finalPaymentMonth: "2038-09",
+    finalPaymentMonth: "2039-01",
+    /** Principal at the last roll-up of unpaid interest into principal (2026-07-11): the portal's principal/interest split. */
+    principalAtRollupMinor: inr(86_78_838),
+    rollupThrough: "2026-07-11",
+    tenureMonths: 174,
   },
 };
 

@@ -134,12 +134,9 @@ export async function seed(db: AnyDb, opts: SeedOptions): Promise<SeedReport> {
     if (!loan) throw new Error("loan row missing after insert");
     const loanId = loan.id;
 
-    const rateIns = await tx
-      .insert(schema.loanRates)
-      .values({ ownerId, loanId, effectiveFrom: LOAN_FACTS.rate.effectiveFrom, annualPercent: LOAN_FACTS.rate.annualPercent, provenance: LOAN_FACTS.rate.provenance, note: LOAN_FACTS.rate.note })
-      .onConflictDoNothing()
-      .returning({ id: schema.loanRates.id });
-    note("loanRates", rateIns.length, 1);
+    const rateValues = LOAN_FACTS.rates.map((r) => ({ ownerId, loanId, effectiveFrom: r.effectiveFrom, annualPercent: r.annualPercent, provenance: r.provenance, note: r.note }));
+    const rateIns = await tx.insert(schema.loanRates).values(rateValues).onConflictDoNothing().returning({ id: schema.loanRates.id });
+    note("loanRates", rateIns.length, rateValues.length);
 
     const disbValues = LOAN_FACTS.disbursements.map((d, i) => ({ ownerId, loanId, date: d.date, amountMinor: d.amountMinor, note: d.note, provenance: d.provenance, seedKey: `disb-${i + 1}` }));
     const disbIns = await tx.insert(schema.loanDisbursements).values(disbValues).onConflictDoNothing().returning({ id: schema.loanDisbursements.id });
@@ -158,6 +155,9 @@ export async function seed(db: AnyDb, opts: SeedOptions): Promise<SeedReport> {
         phases: s.phases.map((p) => ({ ...p })),
         partialInterestThrough: s.partialInterestThrough,
         finalPaymentMonth: s.finalPaymentMonth,
+        principalAtRollupMinor: s.principalAtRollupMinor,
+        rollupThrough: s.rollupThrough,
+        tenureMonths: s.tenureMonths,
         provenance: s.provenance,
       })
       .onConflictDoNothing()

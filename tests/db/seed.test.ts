@@ -69,10 +69,10 @@ describe.skipIf(!up)("seed script", () => {
     expect(d.every((x) => x.state === "pending" && x.rowKey === null)).toBe(true);
   });
 
-  it("schedule is labelled imported, unverified", async () => {
+  it("schedule is labelled as the lender's own statement", async () => {
     const [s] = await db.select().from(schema.loanSchedules);
-    expect(s!.provenance).toBe("imported, unverified");
-    expect(s!.openingBalanceMinor).toBe(88_26_923 * RUPEE);
+    expect(s!.provenance).toBe("lender statement");
+    expect(s!.openingBalanceMinor).toBe(89_79_727 * RUPEE);
   });
 
   it("DB constraints reject a paid payment without a paid date", async () => {

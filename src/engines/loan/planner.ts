@@ -28,6 +28,11 @@ export interface PlannerInputs {
   startDate: IsoDate;
   /** Save first for N months in a HYSA, then convert and apply. 0 = off. */
   saveFirstMonths: number;
+  /**
+   * The portal's "which loan detail to update" choice after a part payment:
+   * "shorten_tenure" = keep the EMI, finish sooner (default); "reduce_emi" = keep the end date, lower the EMI.
+   */
+  afterPartPayment?: "shorten_tenure" | "reduce_emi";
 }
 
 export const PLANNER_DEFAULTS = {
@@ -42,7 +47,8 @@ export type PlannerWarning =
   | { code: "unaffordable"; message: string; neededUsdMinor: number; availableUsdMinor: number }
   | { code: "negative_amortization"; message: string; months: number }
   | { code: "not_paid_off"; message: string }
-  | { code: "reserve_below_zero"; message: string };
+  | { code: "reserve_below_zero"; message: string }
+  | { code: "held_below_minimum"; message: string; months: number; firstReleaseOn: IsoDate | null };
 
 export interface FundMonth {
   date: IsoDate;
@@ -110,14 +116,22 @@ export function availableForLoan(i: Pick<PlannerInputs, "monthlyIncomeUsdMinor" 
 }
 
 /** Schedule facts the planner projects from. */
-export type PlannerBase = Omit<AmortizeInput, "extras" | "projectFrom" | "rates"> & { rateEffectiveFrom?: IsoDate };
+export type PlannerBase = Omit<AmortizeInput, "extras" | "projectFrom" | "rates" | "emiPolicy" | "holdExtrasBelowMinimum"> & {
+  rateEffectiveFrom?: IsoDate;
+  /** The lender's final due date: "reduce EMI" keeps the loan ending here. */
+  finalDate?: IsoDate;
+};
 
-function baseInput(base: PlannerBase, inputs: PlannerInputs, extras: ExtraPayment[]): AmortizeInput {
+function baseInput(base: PlannerBase, inputs: PlannerInputs, extras: ExtraPayment[], withExtras: boolean): AmortizeInput {
+  const { finalDate, rateEffectiveFrom: _r, ...rest } = base;
   return {
-    ...base,
+    ...rest,
     rates: [{ effectiveFrom: base.rateEffectiveFrom ?? "1900-01-01", annualPercent: inputs.annualRatePercent }],
     projectFrom: inputs.startDate,
     extras,
+    // The portal only accepts part payments above the interest build-up; the plan (not the baseline) respects that.
+    holdExtrasBelowMinimum: withExtras && !!base.accrual,
+    emiPolicy: withExtras && inputs.afterPartPayment === "reduce_emi" && finalDate ? { mode: "reduce_emi", finalDate } : undefined,
   };
 }
 
@@ -165,7 +179,7 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
   const lumpInr = usdToInr(lumpUsd, fx);
   const horizon = base.maxMonths ?? 600;
 
-  const baseline = amortize(baseInput(base, inputs, []));
+  const baseline = amortize(baseInput(base, inputs, [], false));
   let extras: ExtraPayment[] = [];
   let saveFirst: SaveFirstResult | null = null;
 
@@ -209,7 +223,7 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
     ];
   }
 
-  const plan = amortize(baseInput(base, inputs, extras));
+  const plan = amortize(baseInput(base, inputs, extras, true));
   if (saveFirst) {
     const applied = plan.periods.find((p) => p.date === saveFirst!.appliedOn);
     // If the loan was smaller than the fund, the unused part is leftover (clipped).
@@ -223,6 +237,16 @@ export function planPayoff(base: PlannerBase, inputs: PlannerInputs): PlannerRes
       code: "negative_amortization",
       message: `${belowInterest} month(s) from the start date where the payment is below the interest — the balance grows.`,
       months: belowInterest,
+    });
+  }
+  const held = plan.periods.filter((p) => p.date >= inputs.startDate && p.heldMinor > 0);
+  if (held.length > 0) {
+    const release = plan.periods.find((p) => p.date >= inputs.startDate && p.extraMinor > 0 && p.date > held[0]!.date);
+    warnings.push({
+      code: "held_below_minimum",
+      message: `Part payments must exceed the interest built up so far, so your extras are held for ${held.length} month(s) until they reach that minimum.`,
+      months: held.length,
+      firstReleaseOn: release?.date ?? null,
     });
   }
   if (!plan.paidOff) warnings.push({ code: "not_paid_off", message: "The loan isn't paid off within the projection horizon." });

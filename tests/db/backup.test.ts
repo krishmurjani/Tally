@@ -122,7 +122,7 @@ describe.skipIf(!up)("backup & restore (DB)", () => {
     const pays = await exportCsv(db, owner, "lender-payments");
     expect(pays).toContain("2025-12-11,,9033.00,,bounce,bounced,bounced");
     const proj = await exportCsv(db, owner, "projection");
-    expect(proj.split("\n")[1]).toMatch(/^2026-10-11,8826923\.00,11\.55,84959\.13,9846\.00,recorded,/);
+    expect(proj.split("\n")[1]).toMatch(/^2026-12-11,8979727\.00,11\.8,88300\.65,9846\.00,schedule,/);
     expect(await exportCsv(db, owner, "category-summaries")).toContain("2026-08,Groceries,12.34,detailed");
   });
 

@@ -484,6 +484,12 @@ export const loanSchedules = pgTable(
     phases: jsonb("phases").$type<{ from: string; kind: "partial_interest" | "emi"; paymentMinor: number; label?: string }[]>().notNull(),
     partialInterestThrough: text("partial_interest_through"),
     finalPaymentMonth: text("final_payment_month"),
+    /** Principal as of the last time accrued interest was added to it (the lender's "interest" vs "principal" split). */
+    principalAtRollupMinor: money("principal_at_rollup_minor"),
+    /** The due date that roll-up happened on. */
+    rollupThrough: day("rollup_through"),
+    /** Total number of instalments in the lender's schedule (PMII + EMI). */
+    tenureMonths: integer("tenure_months"),
     provenance: text("provenance").notNull(),
     createdAt: created(),
     version: version(),

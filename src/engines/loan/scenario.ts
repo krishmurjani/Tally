@@ -31,6 +31,8 @@ export const ScenarioSchema = z.object({
   saveFirstMonths: z.number().int().min(0).max(120),
   /** Plans saved before this option existed default to putting everything available toward the loan. */
   contributionMode: z.enum(["all_available", "extra"]).default("all_available"),
+  /** The portal's choice after a part payment: finish sooner (keep the EMI) or keep the end date (lower EMI). */
+  afterPartPayment: z.enum(["shorten_tenure", "reduce_emi"]).default("shorten_tenure"),
   targetDate: z.string().refine(isIsoDate).nullable(),
   linked: z
     .object({
@@ -59,6 +61,7 @@ export function defaultScenario(today: IsoDate, annualRatePercent: string): Scen
     startDate: today,
     saveFirstMonths: 0,
     contributionMode: "all_available",
+    afterPartPayment: "shorten_tenure",
     targetDate: null,
     linked: null,
   };

@@ -88,7 +88,12 @@ describe.skipIf(!up)("loan ledgers (DB)", () => {
     await expect(addRateChange(db, owner, { effectiveFrom: "2027-01-01", annualPercent: "11", note: null })).rejects.toBeInstanceOf(UserFacingError);
     const { rates } = await loadLoanFacts(db, owner);
     expect(rates.map((r) => [r.effectiveFrom, r.annualPercent])).toEqual([
-      ["2024-07-30", "11.55"],
+      ["2024-08-11", "11.5"],
+      ["2024-11-11", "11.7"],
+      ["2025-08-11", "11.5"],
+      ["2026-02-11", "11.4"],
+      ["2026-07-11", "11.55"],
+      ["2026-10-11", "11.8"],
       ["2027-01-01", "11.25"],
     ]);
   });

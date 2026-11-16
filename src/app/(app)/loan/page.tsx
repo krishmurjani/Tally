@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { todayNY } from "@/engines/dates";
 import { amortize } from "@/engines/loan/amortize";
+import { LENDER_SCHEDULE_ISSUED, lenderMonths } from "@/engines/loan/lender-schedule";
+import { portalView, rollupDate } from "@/engines/loan/portal";
 import { effectiveStatus, paidTotals } from "@/engines/loan/ledger";
 import { sisterLedger } from "@/engines/loan/sister";
 import { formatINR } from "@/engines/money";
@@ -38,7 +40,25 @@ export default async function LoanPage() {
     recordedPayments: payments,
     maxMonths: 600,
   }).periods.filter((p) => p.date <= today);
-  const balanceToday = toToday.at(-1)?.closingMinor ?? schedule.openingBalanceMinor;
+  const portal = portalView(
+    {
+      openingBalanceMinor: schedule.openingBalanceMinor,
+      asOf: schedule.asOf,
+      paymentDay: schedule.paymentDay,
+      phases: schedule.phases,
+      rates: rates.map((r) => ({ effectiveFrom: r.effectiveFrom, annualPercent: r.annualPercent })),
+      principalAtRollupMinor: schedule.principalAtRollupMinor,
+      rollupOn: rollupDate(schedule.phases),
+      payments: payments.map(({ version: _v, interestMinor: _i, principalMinor: _p, ...p }) => p),
+    },
+    today,
+  );
+  // With the principal / interest split known this is the lender portal's own figure (interest to today included).
+  const balanceToday = portal?.quote.outstandingMinor ?? toToday.at(-1)?.closingMinor ?? schedule.openingBalanceMinor;
+  const history = lenderMonths().filter((m) => m.date <= LENDER_SCHEDULE_ISSUED);
+  const interestAccrued = history.reduce((a, m) => a + m.interestAccruedMinor, 0);
+  const interestPaid = history.reduce((a, m) => a + m.interestPaidMinor, 0);
+  const available = Math.max(0, loan.sanctionedMinor - disbursed);
   const next = payments.filter((p) => p.status === "planned").sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))[0];
   const overdue = payments.filter((p) => effectiveStatus(p, today) === "overdue");
   const currentRate = [...rates].filter((r) => r.effectiveFrom <= today).at(-1) ?? rates[0];
@@ -59,7 +79,7 @@ export default async function LoanPage() {
             <HeroLabel>Estimated balance today</HeroLabel>
             <HeroNumber>{formatINR(balanceToday, { decimals: "never" })}</HeroNumber>
             <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#d8e8dd]">
-              <HeroChip>Estimate, not lender ledger</HeroChip>
+              <HeroChip>{portal ? "Matches the lender's portal" : "Estimate, not lender ledger"}</HeroChip>
               {currentRate && <span>at {currentRate.annualPercent}% floating</span>}
             </p>
           </div>
@@ -94,6 +114,12 @@ export default async function LoanPage() {
             <dd>{schedule.partialInterestThrough ?? "—"}</dd>
             <dt className="text-muted">Final payment</dt>
             <dd>{schedule.finalPaymentMonth ?? "—"}</dd>
+            {schedule.tenureMonths !== null && (
+              <>
+                <dt className="text-muted">Tenure</dt>
+                <dd>{schedule.tenureMonths} instalments</dd>
+              </>
+            )}
           </dl>
           <p className="mt-3 text-xs text-faint">Payments aren&apos;t labelled as interest unless the lender&apos;s allocation is entered on the payment.</p>
         </Card>
@@ -116,9 +142,76 @@ export default async function LoanPage() {
         </Card>
       </div>
 
+      {portal && (
+        <Card title="Part payment" action={<Provenance label="lender statement" />}>
+          <p className="text-sm">
+            The portal lets you part-pay from <b className="tabular-nums">{formatINR(portal.quote.minimumMinor, { decimals: "never" })}</b> up to <b className="tabular-nums">{formatINR(portal.quote.maximumMinor, { decimals: "never" })}</b> (as of {portal.quote.on}).
+          </p>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted">
+            <li>
+              The minimum is the {formatINR(portal.quote.interestMinor, { decimals: "never" })} of interest built up since {schedule.rollupThrough ?? "it was last added to principal"}, plus ₹1.
+            </li>
+            <li>Payments go to dues, then interest, then principal — so the first {formatINR(portal.quote.interestMinor, { decimals: "never" })} never reduces principal.</li>
+            <li>Unpaid interest keeps compounding monthly, so the minimum grows until the EMI starts and it&apos;s added to principal.</li>
+            <li>There is no prepayment charge. You choose: keep the EMI and finish sooner, or keep the tenure and lower the EMI.</li>
+          </ol>
+          <p className="mt-3 text-sm">
+            <Link href="/loan/planner" className="font-medium text-brand hover:underline">
+              Plan a part payment →
+            </Link>
+          </p>
+        </Card>
+      )}
+
+      <Card title="Interest so far" action={<Provenance label="lender statement" />}>
+        <dl className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+          <div>
+            <dt className="text-xs text-muted">Charged since Aug 2024</dt>
+            <dd className="text-lg font-semibold tabular-nums">{formatINR(interestAccrued, { decimals: "never" })}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">You&apos;ve paid</dt>
+            <dd className="text-lg font-semibold tabular-nums">{formatINR(interestPaid, { decimals: "never" })}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted">Added to the balance (unpaid)</dt>
+            <dd className="text-lg font-semibold tabular-nums">{formatINR(interestAccrued - interestPaid, { decimals: "never" })}</dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-xs text-faint">Your instalments so far have been interest only, so none has reduced the loan. The unpaid part is added to the balance each month and itself earns interest.</p>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-muted">Month by month ({history.length} months)</summary>
+          <div className="mt-3 max-h-96 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-surface text-left text-xs uppercase text-faint">
+                <tr>
+                  <th className="py-1 font-medium">Due</th>
+                  <th className="py-1 text-right font-medium">Charged</th>
+                  <th className="py-1 text-right font-medium">Paid</th>
+                  <th className="hidden py-1 text-right font-medium sm:table-cell">Added</th>
+                  <th className="hidden py-1 text-right font-medium sm:table-cell">Outstanding</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...history].reverse().map((m) => (
+                  <tr key={m.date} className="border-t border-line/60">
+                    <td className="py-1 tabular-nums">{m.date}</td>
+                    <td className="py-1 text-right tabular-nums">{formatINR(m.interestAccruedMinor, { decimals: "never" })}</td>
+                    <td className="py-1 text-right tabular-nums">{formatINR(m.interestPaidMinor, { decimals: "never" })}</td>
+                    <td className="hidden py-1 text-right tabular-nums sm:table-cell">{formatINR(m.unpaidAddedMinor, { decimals: "never" })}</td>
+                    <td className="hidden py-1 text-right tabular-nums sm:table-cell">{formatINR(m.outstandingMinor, { decimals: "never" })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </Card>
+
       <Card title="Sanction & disbursements" action={<Provenance label="lender statement" />}>
         <p className="mb-3 text-sm">
           Sanctioned {formatINR(loan.sanctionedMinor)} <span className="text-muted">({loan.provenance})</span> · Disbursed {formatINR(disbursed)}
+          {available > 0 && <span className="text-muted"> · Still available to withdraw {formatINR(available)}</span>}
         </p>
         <ul className="divide-y divide-line/70 text-sm">
           {disbursements.map((d) => (

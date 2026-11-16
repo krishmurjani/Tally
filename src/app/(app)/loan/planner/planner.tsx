@@ -7,6 +7,7 @@ import { Hero, HeroChip, HeroLabel, HeroNumber, HeroRing, HeroStats } from "@/co
 import { Badge, Card } from "@/components/ui";
 import { monthLabel } from "@/engines/dates";
 import { planPayoff, requiredMonthlyContribution, usdToInr, effectiveFx, type PlannerBase, type PlannerWarning } from "@/engines/loan/planner";
+import { checkPartPayment, splitPartPayment, type PartPaymentQuote } from "@/engines/loan/part-payment";
 import { linkDrift, plannerInputs, type Scenario } from "@/engines/loan/scenario";
 import { formatINR, formatUSD, isParsableMinor, parseMinor } from "@/engines/money";
 import { isDecimalString } from "@/engines/rational";
@@ -108,6 +109,66 @@ function DecimalSlider({ label, value, onChange, max, step, suffix, hint }: { la
   );
 }
 
+const rupees = (minor: number) => `₹${Math.round(minor / 100).toLocaleString("en-IN")}`;
+
+/** The portal's Pay Now → Part payment screen: today's minimum and maximum, a try-an-amount box, and the rules. */
+function PartPaymentCard({ q }: { q: PartPaymentQuote & { lastDueDate: string } }) {
+  const [text, setText] = useState(String(Math.ceil(q.minimumMinor / 100)));
+  const n = Number(text.replace(/[, ]/g, ""));
+  const amount = Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0;
+  const check = amount > 0 ? checkPartPayment(amount, q) : null;
+  const split = amount > 0 && check?.ok ? splitPartPayment(amount, q) : null;
+  return (
+    <Card title="Part payment on the lender's portal" action={<Badge tone="forest">matches the portal</Badge>}>
+      <dl className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+        <div>
+          <dt className="text-xs text-muted">Outstanding today</dt>
+          <dd className="text-lg font-semibold tabular-nums">{rupees(q.outstandingMinor)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Minimum you can pay</dt>
+          <dd className="text-lg font-semibold tabular-nums">{rupees(q.minimumMinor)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Maximum</dt>
+          <dd className="text-lg font-semibold tabular-nums">{rupees(q.maximumMinor)}</dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-sm text-muted">
+        The minimum is all the interest built up so far ({rupees(q.interestMinor)}) plus ₹1, so that at least ₹1 reaches principal. As of {q.on}.
+      </p>
+      <label className="mt-4 block text-sm">
+        <span className="text-muted">Try an amount (₹)</span>
+        <input inputMode="numeric" value={text} onChange={(e) => setText(e.target.value)} aria-label="Part payment amount in rupees" className="mt-1 h-11 w-full max-w-xs rounded-xl border border-line bg-surface px-3 outline-none focus:border-forest-600" />
+      </label>
+      {check && !check.ok && (
+        <p role="alert" className="mt-2 text-sm text-danger">
+          The portal won&apos;t accept this: {check.reason === "below_minimum" ? "below the minimum" : "above the maximum"} of {rupees(check.limitMinor)}.
+        </p>
+      )}
+      {split && (
+        <dl className="mt-3 grid max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 rounded-xl bg-canvas px-4 py-3 text-sm tabular-nums">
+          <dt className="text-muted">Principal</dt>
+          <dd className="text-right">{rupees(split.principalMinor)}</dd>
+          <dt className="text-muted">Interest</dt>
+          <dd className="text-right">{rupees(split.interestMinor)}</dd>
+          <dt className="text-muted">Charges</dt>
+          <dd className="text-right">{rupees(split.chargesMinor)}</dd>
+          <dt className="text-muted">Overdue</dt>
+          <dd className="text-right">{rupees(split.overdueMinor)}</dd>
+        </dl>
+      )}
+      <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-muted">
+        <li>A payment goes to dues first, then interest, then principal.</li>
+        <li>Interest is everything built up since it was last added to principal, so small payments can&apos;t be accepted.</li>
+        <li>No prepayment charge applies on this floating-rate loan.</li>
+        <li>Choose &ldquo;keep EMI, shorten tenure&rdquo; to finish sooner, or &ldquo;keep tenure, reduce EMI&rdquo; for lower payments.</li>
+        <li>Charges, taxes and interest to the day of payment can change the exact amount.</li>
+      </ol>
+    </Card>
+  );
+}
+
 function warningText(w: PlannerWarning): string {
   switch (w.code) {
     case "deficit":
@@ -116,6 +177,8 @@ function warningText(w: PlannerWarning): string {
       return `${w.message} Needs ${usd(w.neededUsdMinor)}/month; ${usd(w.availableUsdMinor)} available.`;
     case "lump_exceeds_available":
       return `${w.message} Using ${usd(w.allowedUsdMinor)} instead of ${usd(w.requestedUsdMinor)}.`;
+    case "held_below_minimum":
+      return w.firstReleaseOn ? `${w.message} They are paid in one go on ${w.firstReleaseOn}.` : `${w.message} They never reach it within the plan.`;
     default:
       return w.message;
   }
@@ -127,12 +190,15 @@ export function Planner({
   months,
   scheduleFinalMonth,
   rateNote,
+  portal,
 }: {
   base: PlannerBase;
   initial: { inputs: Scenario; version: number | null };
   months: LinkOption[];
   scheduleFinalMonth: string | null;
   rateNote: string;
+  /** Today's lender-portal figures; null when the principal / interest split isn't known. */
+  portal: (PartPaymentQuote & { lastDueDate: string }) | null;
 }) {
   const [s, setS] = useState<Scenario>(initial.inputs);
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
@@ -291,6 +357,23 @@ export function Planner({
                 First month from the start date: scheduled payment + <b>{usd(result.monthlyExtraUsdMinor)}</b> extra ({inr(result.monthlyExtraInrMinor)}).
               </p>
             )}
+            <fieldset className="space-y-2 text-sm">
+              <legend className="mb-1 font-medium">After a part payment</legend>
+              {(
+                [
+                  ["shorten_tenure", "Keep EMI, shorten tenure", "The EMI stays ₹1,29,537; you finish sooner and pay the least interest."],
+                  ["reduce_emi", "Keep tenure, reduce EMI", `The loan still ends in ${scheduleFinalMonth ?? "the lender's final month"}; each month's EMI is recalculated lower.`],
+                ] as const
+              ).map(([value, title, hint]) => (
+                <label key={value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${s.afterPartPayment === value ? "border-forest-600 bg-forest-50" : "border-line"}`}>
+                  <input type="radio" name="afterPartPayment" value={value} checked={s.afterPartPayment === value} onChange={() => set("afterPartPayment", value)} className="mt-1 accent-forest-700" />
+                  <span>
+                    <span className="block font-medium">{title}</span>
+                    <span className="block text-xs text-muted">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
             <Field label="Start date">
               <input type="date" value={s.startDate} onChange={(e) => e.target.value && set("startDate", e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3" />
             </Field>
@@ -349,6 +432,8 @@ export function Planner({
             </ul>
           </Card>
         )}
+
+        {portal && <PartPaymentCard q={portal} />}
 
         <Card title="How does my plan change the balance?" action={<Badge tone="warn">estimate, not lender ledger</Badge>}>
           <BalanceChart plan={result.plan.periods} baseline={result.baseline.periods} from={inputs.startDate.slice(0, 7)} />
@@ -431,13 +516,15 @@ export function Planner({
                         {inr(p.requiredMinor)}
                         {p.requiredSource === "recorded" ? "*" : ""}
                       </td>
-                      <td className="hidden py-1 text-right tabular-nums sm:table-cell">{p.extraMinor ? inr(Math.min(p.extraMinor, p.paymentMinor)) : "—"}</td>
+                      <td className="hidden py-1 text-right tabular-nums sm:table-cell">
+                        {p.extraMinor ? inr(Math.min(p.extraMinor, p.paymentMinor)) : p.heldMinor ? <span className="text-faint">held {inr(p.heldMinor)}</span> : "—"}
+                      </td>
                       <td className="py-1 text-right tabular-nums">{inr(p.closingMinor)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <p className="mt-2 text-xs text-faint">* recorded payment. Rows in amber: the payment is below that month&apos;s interest, so the balance grows.</p>
+              <p className="mt-2 text-xs text-faint">* recorded payment. Rows in amber: the payment is below that month&apos;s interest, so the balance grows. &ldquo;held&rdquo;: your extra is waiting to reach the portal&apos;s part-payment minimum.</p>
             </div>
           </details>
         </Card>
@@ -445,13 +532,16 @@ export function Planner({
         <Card title="Assumptions">
           <ul className="space-y-2 text-sm">
             {[
-              ["Disbursements (₹73,84,970)", "verified", "From the lender statement."],
-              ["Opening balance ₹88,26,923 on 2026-09-11", "unverified", "From the repayment schedule (imported, unverified)."],
-              ["Schedule: ₹9,846/month partial interest to Aug 2027, then ₹1,29,537 EMI", "unverified", "Imported schedule; final payment Sep 2038."],
-              [`Interest rate ${s.annualRatePercent}%`, "estimate", "Floating — previously stated as 11.55%."],
-              ["Unpaid interest is added to the balance (capitalized)", "unverified", "Whether Credila capitalizes unpaid interest isn't confirmed."],
-              ["Interest is monthly: balance × rate / 12", "estimate", "Not daily; the lender may compute differently."],
-              ["Payments on/before 2026-09-11", "verified", "Already reflected in the opening balance; never subtracted again."],
+              ["Disbursements (₹73,84,970 of ₹75,00,000 sanctioned)", "verified", "Lender transaction history; ₹1,15,030 is still available to withdraw."],
+              [`Outstanding ${inr(base.openingBalanceMinor)} after the ${base.asOf} instalment`, "verified", "The lender's repayment schedule issued 2026-11-16."],
+              ["₹9,846/month partial interest to Aug 2027, then a ₹1,29,537 EMI; final payment Jan 2039 (174 instalments)", "verified", "The same schedule; the model reproduces it to within ₹3 a month."],
+              [`Interest rate ${s.annualRatePercent}%`, "verified", "Credila's rate today (CBLR 14.1% − 2.3%). Floating: change it here to test scenarios."],
+              ["Interest is the balance × rate ÷ 12 each month, to the whole rupee", "verified", "Loan agreement cl. 2.3(b); the lender's schedule follows it."],
+              ["Unpaid interest is added to the balance every month", "verified", "Cl. 2.3(i), and visible in the schedule's outstanding column."],
+              ["Part payments must exceed the interest built up, and are applied to interest first", "verified", "The portal's minimum and its ₹3,16,000 → ₹3,15,605 interest + ₹395 principal example."],
+              ["Interest is added to principal when the EMI starts (Sep 2027)", "estimate", "The lender's schedule does this; the exact roll-up rule isn't published."],
+              ["No prepayment or foreclosure charge", "verified", "Cl. 2.9(a): none on floating-rate loans."],
+              ["A part payment is made on a due date", "estimate", "The portal lets you pay any day; interest to that day is then added."],
               [`₹${s.fxInrPerUsd}/$, ${s.transferFeePercent}% fee, ${s.hysaApyPercent}% APY`, "estimate", "Your inputs."],
               ["Planned payments", "verified", "Never counted as paid until marked paid in the ledger."],
             ].map(([what, kind, why]) => (
