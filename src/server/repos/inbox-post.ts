@@ -12,12 +12,13 @@ import { and, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { addDays, monthOf } from "@/engines/dates";
 import { blockers } from "@/engines/inbox";
-import { buildPostPlan, resolveTarget, type Group, type Person, type PostPlan } from "@/engines/splitwise-post";
+import { buildPostPlan, pickSplitwiseCategory, resolveTarget, SPLITWISE_CATEGORY_PREFERENCE, type Aliases, type Group, type Person, type PostPlan, type SwCategory } from "@/engines/splitwise-post";
 import * as schema from "../db/schema";
 import type { Owner } from "../owner-core";
 import { SplitwiseAuthError, SplitwiseRejectedError, SplitwiseUncertainError, type SplitwiseApi } from "../splitwise/client";
 import { apiRowKey } from "../splitwise/derive";
 import { setCategoryOverride } from "./expenses";
+import { loadAliases } from "./inbox";
 import { NotFoundError, UserFacingError } from "./errors";
 
 type AnyDb = NodePgDatabase<typeof schema>;
@@ -36,18 +37,41 @@ export interface PostPreview {
   ok: boolean;
   problems: string[];
   plan: PostPlan | null;
+  /** The group the item names (null = a non-group expense between friends), and whether Splitwise has it. */
+  groupName: string | null;
+  groupFound: boolean;
+  /** Names nobody matched. The screen offers to say who they are. */
+  unresolved: string[];
+  /** Who they could be (the group's members, or your friends). */
+  candidates: { id: number; name: string }[];
+  /** The Splitwise category it will be filed under; null means Splitwise will say General. */
+  swCategory: string | null;
 }
 
 interface Lookups {
   me: Person;
   groups: Group[];
   friends: Person[];
+  aliases: Aliases;
+  swCategories: SwCategory[];
+  /** Tally category id → its name and the Splitwise names you've mapped to it. */
+  tally: Map<string, { name: string; mapped: { name: string; confirmed: boolean }[] }>;
 }
 
 /** One live look at Splitwise (who am I, my groups, my friends) shared by a whole batch. */
-async function lookups(api: SplitwiseApi, needFriends: boolean): Promise<Lookups> {
-  const [meRaw, groups, friends] = await Promise.all([api.getCurrentUser(), api.getGroupsWithMembers(), needFriends ? api.getFriends() : Promise.resolve([])]);
-  return { me: { id: meRaw.id, firstName: meRaw.firstName, lastName: meRaw.lastName }, groups, friends };
+async function lookups(db: AnyDb, owner: Owner, api: SplitwiseApi, needFriends: boolean): Promise<Lookups> {
+  const [meRaw, groups, friends, swCategories, aliases, cats, maps] = await Promise.all([
+    api.getCurrentUser(),
+    api.getGroupsWithMembers(),
+    needFriends ? api.getFriends() : Promise.resolve([]),
+    api.getCategories().catch(() => [] as SwCategory[]), // a missing category list only means "General"; never block a post on it
+    loadAliases(db, owner),
+    db.select({ id: schema.categories.id, name: schema.categories.name }).from(schema.categories).where(eq(schema.categories.ownerId, owner.id)),
+    db.select().from(schema.splitwiseCategoryMaps).where(eq(schema.splitwiseCategoryMaps.ownerId, owner.id)),
+  ]);
+  const tally: Lookups["tally"] = new Map(cats.map((c) => [c.id, { name: c.name, mapped: [] }]));
+  for (const m of maps) if (m.categoryId) tally.get(m.categoryId)?.mapped.push({ name: m.splitwiseName, confirmed: m.status === "confirmed" });
+  return { me: { id: meRaw.id, firstName: meRaw.firstName, lastName: meRaw.lastName }, groups, friends, aliases, swCategories, tally };
 }
 
 async function closedMonths(db: AnyDb, owner: Owner): Promise<Set<string>> {
@@ -55,13 +79,17 @@ async function closedMonths(db: AnyDb, owner: Owner): Promise<Set<string>> {
   return new Set(rows.map((r) => r.month));
 }
 
-function planFor(item: Item, l: Lookups, closed: Set<string>): { problems: string[]; plan: PostPlan | null } {
+function planFor(item: Item, l: Lookups, closed: Set<string>): Pick<PostPreview, "problems" | "plan" | "groupName" | "groupFound" | "unresolved" | "candidates" | "swCategory"> {
   const problems = blockers({ kind: "shared", currency: item.currency, categoryId: item.categoryId, monthClosed: closed.has(monthOf(item.date)), hasPayer: !!item.paidBy, hasSplit: !!item.split });
+  const base = { groupName: item.groupName, groupFound: true, unresolved: [] as string[], candidates: [] as { id: number; name: string }[], swCategory: null as string | null };
   const target = resolveTarget(item.groupName, l.groups, l.friends, l.me);
-  if (!target.ok) return { problems: [...problems, ...target.problems], plan: null };
-  const built = buildPostPlan(item, target.target, l.me);
-  if (!built.ok) return { problems: [...problems, ...built.problems], plan: null };
-  return { problems, plan: built.plan };
+  if (!target.ok) return { ...base, groupFound: false, problems: [...problems, ...target.problems], plan: null };
+  const candidates = target.target.people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim() }));
+  const built = buildPostPlan(item, target.target, l.me, l.aliases);
+  if (!built.ok) return { ...base, candidates, unresolved: built.unresolved, problems: [...problems, ...built.problems], plan: null };
+  const tallyCat = item.categoryId ? l.tally.get(item.categoryId) : undefined;
+  const category = tallyCat ? pickSplitwiseCategory(tallyCat.name, tallyCat.mapped, l.swCategories, SPLITWISE_CATEGORY_PREFERENCE[tallyCat.name] ?? []) : null;
+  return { ...base, candidates, swCategory: category?.name ?? null, problems, plan: { ...built.plan, category } };
 }
 
 /** What would be sent, for the confirmation screen. Reads Splitwise; writes nothing anywhere. */
@@ -71,10 +99,10 @@ export async function previewPosts(db: AnyDb, owner: Owner, api: SplitwiseApi, i
     .from(schema.inboxItems)
     .where(and(eq(schema.inboxItems.ownerId, owner.id), inArray(schema.inboxItems.id, ids), eq(schema.inboxItems.kind, "shared"), eq(schema.inboxItems.status, "pending")));
   if (items.length === 0) return [];
-  const [l, closed] = await Promise.all([lookups(api, items.some((i) => !i.groupName)), closedMonths(db, owner)]);
+  const [l, closed] = await Promise.all([lookups(db, owner, api, items.some((i) => !i.groupName)), closedMonths(db, owner)]);
   return items.map((item) => {
-    const { problems, plan } = planFor(item, l, closed);
-    return { id: item.id, description: item.description, date: item.date, amountMinor: item.amountMinor, currency: item.currency, ok: problems.length === 0 && plan !== null, problems, plan };
+    const r = planFor(item, l, closed);
+    return { id: item.id, description: item.description, date: item.date, amountMinor: item.amountMinor, currency: item.currency, ok: r.problems.length === 0 && r.plan !== null, ...r };
   });
 }
 
@@ -113,7 +141,7 @@ export async function postSharedItem(db: AnyDb, owner: Owner, api: SplitwiseApi,
   // 2. Work out exactly what to send, from Splitwise as it is right now.
   let plan: PostPlan;
   try {
-    const [l, closed] = await Promise.all([lookups(api, !item.groupName), closedMonths(db, owner)]);
+    const [l, closed] = await Promise.all([lookups(db, owner, api, !item.groupName), closedMonths(db, owner)]);
     const r = planFor(item, l, closed);
     if (!r.plan || r.problems.length > 0) {
       const msg = r.problems.join("; ") || "It can't be posted yet.";
@@ -136,6 +164,7 @@ export async function postSharedItem(db: AnyDb, owner: Owner, api: SplitwiseApi,
       details: plan.details,
       date: plan.date,
       currencyCode: plan.currency,
+      ...(plan.category ? { categoryId: plan.category.id } : {}),
       groupId: plan.groupId,
       shares: plan.shares.map((s) => ({ userId: s.userId, paid: s.paid, owed: s.owed })),
     });

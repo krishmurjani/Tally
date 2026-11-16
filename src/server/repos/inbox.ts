@@ -251,3 +251,33 @@ export async function approveReadyInbox(db: AnyDb, owner: Owner): Promise<{ appr
   return { approved, left: pending.length - approved };
 }
 
+
+// ---------------------------------------------------------------------------------------------- name aliases
+
+import { aliasKey, type Aliases } from "@/engines/splitwise-post";
+
+export async function loadAliases(db: AnyDb, owner: Owner): Promise<Aliases> {
+  const rows = await db.select().from(schema.personAliases).where(eq(schema.personAliases.ownerId, owner.id));
+  return new Map(rows.map((r) => [r.alias, { userId: r.splitwiseUserId, displayName: r.displayName }]));
+}
+
+export async function listAliases(db: AnyDb, owner: Owner) {
+  return db.select().from(schema.personAliases).where(eq(schema.personAliases.ownerId, owner.id)).orderBy(asc(schema.personAliases.alias));
+}
+
+/** Remember that `name` means this Splitwise person. Saving the same name again replaces what it pointed to. */
+export async function saveAlias(db: AnyDb, owner: Owner, input: { name: string; splitwiseUserId: number; displayName: string }) {
+  const alias = aliasKey(input.name);
+  if (!alias || ["me", "i", "myself", "self"].includes(alias)) throw new UserFacingError("That name can't be an alias.");
+  await db
+    .insert(schema.personAliases)
+    .values({ ownerId: owner.id, alias, splitwiseUserId: input.splitwiseUserId, displayName: input.displayName })
+    .onConflictDoUpdate({ target: [schema.personAliases.ownerId, schema.personAliases.alias], set: { splitwiseUserId: input.splitwiseUserId, displayName: input.displayName } });
+  await audit(db, owner, "person_alias", alias, "save", null, { splitwiseUserId: input.splitwiseUserId, displayName: input.displayName });
+}
+
+export async function deleteAlias(db: AnyDb, owner: Owner, id: string) {
+  const res = await db.delete(schema.personAliases).where(and(eq(schema.personAliases.id, id), eq(schema.personAliases.ownerId, owner.id))).returning({ alias: schema.personAliases.alias });
+  if (!res.length) throw new NotFoundError("alias", id);
+  await audit(db, owner, "person_alias", res[0]!.alias, "delete", null, null);
+}

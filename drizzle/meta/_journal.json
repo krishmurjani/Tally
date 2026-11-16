@@ -57,6 +57,13 @@
       "when": 1794812654763,
       "tag": "0007_inbox_splitwise_post",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794817911657,
+      "tag": "0008_person_aliases",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import type { ScriptDb } from "@/server/db/connect";
 import * as schema from "@/server/db/schema";
 import { resolveOwner, type Owner } from "@/server/owner-core";
 import { UserFacingError } from "@/server/repos/errors";
-import { ingestInbox, loadInbox } from "@/server/repos/inbox";
+import { ingestInbox, loadInbox, saveAlias } from "@/server/repos/inbox";
 import { checkPostingItem, postSharedBatch, postSharedItem, previewPosts } from "@/server/repos/inbox-post";
 import { seed } from "@/server/seed";
 import { FakeSplitwise } from "../server/fake-splitwise";
@@ -131,6 +131,52 @@ describe.skipIf(!up)("posting to Splitwise (DB, fake Splitwise)", () => {
     const c = await add({ externalId: "m-1" });
     await expect(postSharedItem(db, owner, sw, c.id)).rejects.toThrow(/more than one person/);
     expect(sw.created).toHaveLength(0);
+  });
+
+  it("files the expense under Splitwise's own category (not General), and shows which in the preview", async () => {
+    const it1 = await add({ category: "Groceries" });
+    const [p] = await previewPosts(db, owner, sw, [it1.id]);
+    expect(p!.swCategory).toBe("Groceries");
+    await postSharedItem(db, owner, sw, it1.id);
+    expect(sw.created[0]).toMatchObject({ categoryId: 12 });
+    const dining = await add({ externalId: "d-1", category: "Dining Out" });
+    await postSharedItem(db, owner, sw, dining.id);
+    expect(sw.created[1]).toMatchObject({ categoryId: 13 });
+  });
+
+  it("no matching Splitwise category just means General: it still posts, with no category sent", async () => {
+    sw.categories = [{ id: 18, name: "General" }];
+    const it1 = await add();
+    const [p] = await previewPosts(db, owner, sw, [it1.id]);
+    expect(p).toMatchObject({ ok: true, swCategory: null });
+    await postSharedItem(db, owner, sw, it1.id);
+    expect(sw.created[0]).not.toHaveProperty("categoryId");
+  });
+
+  it("a name Splitwise doesn't know is asked about once; after saving an alias it just works", async () => {
+    const it1 = await add({ externalId: "al-1", group: undefined, split: [{ person: "me", owes: "8.00" }, { person: "Siddh Mandirwala", owes: "12.00" }] });
+    const [before] = await previewPosts(db, owner, sw, [it1.id]);
+    expect(before).toMatchObject({ ok: false, unresolved: ["Siddh Mandirwala"], groupName: null, groupFound: true });
+    expect(before!.candidates.map((c) => c.id)).toContain(3003);
+    await saveAlias(db, owner, { name: "Siddh Mandirwala", splitwiseUserId: 3003, displayName: "Siddh S" });
+    const [after] = await previewPosts(db, owner, sw, [it1.id]);
+    expect(after).toMatchObject({ ok: true, unresolved: [] });
+    await postSharedItem(db, owner, sw, it1.id);
+    expect(sw.created[0]!.shares.find((s) => s.userId === 3003)).toMatchObject({ owed: "12.00" });
+    // and the next item with the same name needs no asking
+    const it2 = await add({ externalId: "al-2", group: undefined, split: [{ person: "me", owes: "1.00" }, { person: "siddh mandirwala", owes: "1.00" }], amount: "2.00" });
+    expect((await previewPosts(db, owner, sw, [it2.id]))[0]!.ok).toBe(true);
+  });
+
+  it("a flagged item doesn't hold up the clean ones: the ready ones can be posted on their own", async () => {
+    const good = await add({ externalId: "ok-1" });
+    const bad = await add({ externalId: "bad-1", split: [{ person: "me", owes: "8.00" }, { person: "Nobody Here", owes: "12.00" }] });
+    const previews = await previewPosts(db, owner, sw, [good.id, bad.id]);
+    const ready = previews.filter((p) => p.ok).map((p) => p.id);
+    expect(ready).toEqual([good.id]);
+    expect(await postSharedBatch(db, owner, sw, ready)).toEqual({ posted: 1, stoppedBecause: null });
+    expect((await row(bad.id)).status).toBe("pending");
+    expect(sw.created).toHaveLength(1);
   });
 
   it("a non-group expense between friends goes to group 0", async () => {

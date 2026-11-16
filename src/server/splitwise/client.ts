@@ -84,6 +84,8 @@ export interface SplitwiseApi {
   /** Groups with their members (the real group list excludes Splitwise's pseudo-group 0). */
   getGroupsWithMembers(): Promise<SwGroup[]>;
   getFriends(): Promise<SwPerson[]>;
+  /** Splitwise's own categories, flattened to the choosable sub-categories (Groceries, Taxi, …). */
+  getCategories(): Promise<{ id: number; name: string }[]>;
   /** Creates ONE expense. Never retried automatically after a network error or 5xx — see SplitwiseUncertainError. */
   createExpense(input: CreateExpenseInput): Promise<{ id: number; raw: unknown }>;
 }
@@ -186,6 +188,10 @@ export function createSplitwiseClient(opts: ClientOptions): SplitwiseApi {
     async getGroupsWithMembers() {
       const body = z.object({ groups: z.array(z.object({ id: z.number().int(), name: z.string(), members: z.array(PersonSchema).default([]) })) }).parse(await get("get_groups"));
       return body.groups.filter((g) => g.id !== 0).map((g) => ({ id: g.id, name: g.name, members: g.members.map(toPerson) }));
+    },
+    async getCategories() {
+      const body = z.object({ categories: z.array(z.object({ id: z.number().int(), name: z.string(), subcategories: z.array(z.object({ id: z.number().int(), name: z.string() })).default([]) })) }).parse(await get("get_categories"));
+      return body.categories.flatMap((c) => c.subcategories.map((s) => ({ id: s.id, name: s.name })));
     },
     async getFriends() {
       const body = z.object({ friends: z.array(PersonSchema) }).parse(await get("get_friends"));

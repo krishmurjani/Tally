@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { approveInboxItem, approveReadyInbox, createApiToken, rejectInboxItem, revokeApiToken, setInboxCategory } from "../repos/inbox";
+import { approveInboxItem, approveReadyInbox, createApiToken, deleteAlias, rejectInboxItem, revokeApiToken, saveAlias, setInboxCategory } from "../repos/inbox";
 import { checkPostingItem, postSharedBatch, previewPosts } from "../repos/inbox-post";
 import { createSplitwiseClient, SplitwiseAuthError, SplitwiseError } from "../splitwise/client";
 import { UserFacingError } from "../repos/errors";
@@ -92,5 +92,16 @@ export async function postToSplitwiseAction(input: unknown) {
 export async function checkPostingAction(input: unknown) {
   const res = await ownerAction(z.object({ id: z.uuid() }), input, ({ db, owner, input }) => viaSplitwise(() => checkPostingItem(db, owner, splitwise(), input.id)));
   revalidatePath("/", "layout");
+  return res;
+}
+
+/** "When anyone says <name>, they mean this Splitwise person." Saved once from the posting screen. */
+export async function saveAliasAction(input: unknown) {
+  return ownerAction(z.object({ name: z.string().trim().min(1).max(100), splitwiseUserId: z.number().int().positive(), displayName: z.string().trim().min(1).max(120) }), input, ({ db, owner, input }) => saveAlias(db, owner, input));
+}
+
+export async function deleteAliasAction(input: unknown) {
+  const res = await ownerAction(z.object({ id: z.uuid() }), input, ({ db, owner, input }) => deleteAlias(db, owner, input.id));
+  if (res.ok) revalidatePath("/settings/api");
   return res;
 }

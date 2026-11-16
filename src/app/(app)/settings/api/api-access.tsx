@@ -6,7 +6,7 @@ import { Collapsible } from "@/components/collapsible";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SaveStatus } from "@/components/save-status";
 import { useAction } from "@/lib/client/use-action";
-import { createApiTokenAction, revokeApiTokenAction } from "@/server/actions/inbox";
+import { createApiTokenAction, deleteAliasAction, revokeApiTokenAction } from "@/server/actions/inbox";
 
 interface Token {
   id: string;
@@ -47,7 +47,21 @@ const EXAMPLE = `{
   ]
 }`;
 
-export function ApiAccess({ tokens }: { tokens: Token[] }) {
+function AliasRow({ a }: { a: { id: string; alias: string; displayName: string } }) {
+  const del = useAction(deleteAliasAction, { success: "Alias removed" });
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 py-3">
+      <span>
+        “{a.alias}” <span className="text-muted">means</span> <b>{a.displayName}</b>
+      </span>
+      <button disabled={del.pending} onClick={() => void del.run({ id: a.id })} className="h-9 rounded-lg border border-line px-3 text-sm transition hover:bg-forest-50 disabled:opacity-60">
+        Remove
+      </button>
+    </li>
+  );
+}
+
+export function ApiAccess({ tokens, aliases }: { tokens: Token[]; aliases: { id: string; alias: string; displayName: string }[] }) {
   const [name, setName] = useState("Instinct");
   const [fresh, setFresh] = useState<{ token: string; name: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -133,6 +147,16 @@ export function ApiAccess({ tokens }: { tokens: Token[] }) {
           ))}
         </ul>
         {active.length === 0 && tokens.length > 0 && <p className="mt-2 text-xs text-faint">All tokens are revoked, so nothing can send to the Inbox.</p>}
+      </Card>
+
+      <Card title="Name aliases">
+        <p className="text-sm text-muted">When the assistant uses a name Splitwise doesn&apos;t know (like a full surname), the posting screen asks who it is, once. Those answers are kept here.</p>
+        <ul className="mt-3 divide-y divide-line/70 text-sm">
+          {aliases.length === 0 && <li className="py-3 text-muted">None yet.</li>}
+          {aliases.map((a) => (
+            <AliasRow key={a.id} a={a} />
+          ))}
+        </ul>
       </Card>
 
       <Card title="How it's used">

@@ -48,6 +48,17 @@ export class FakeSplitwise implements SplitwiseApi {
     this.calls++;
     return structuredClone(this.detailedGroups);
   }
+  /** A small slice of Splitwise's real category list. */
+  categories = [
+    { id: 12, name: "Groceries" },
+    { id: 13, name: "Dining out" },
+    { id: 31, name: "Bus/train" },
+    { id: 18, name: "General" },
+  ];
+  async getCategories() {
+    this.calls++;
+    return structuredClone(this.categories);
+  }
   async getFriends() {
     this.calls++;
     return structuredClone(this.friends);

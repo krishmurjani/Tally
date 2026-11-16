@@ -308,6 +308,22 @@ export const manualExpenses = pgTable(
   ],
 );
 
+/** "When a sender says <alias>, it means this Splitwise person." Saved once from the posting screen. */
+export const personAliases = pgTable(
+  "person_aliases",
+  {
+    id: id(),
+    ownerId: ownerId(),
+    /** The name as sent, lower-cased with spaces collapsed. */
+    alias: text("alias").notNull(),
+    splitwiseUserId: money("splitwise_user_id").notNull(),
+    /** How that person shows in Splitwise, for display. */
+    displayName: text("display_name").notNull(),
+    createdAt: created(),
+  },
+  (t) => [uniqueIndex("person_aliases_alias").on(t.ownerId, t.alias)],
+);
+
 /** Access tokens for the batch endpoint (POST /api/inbox). Only a SHA-256 hash is kept; the token itself is shown once. */
 export const apiTokens = pgTable(
   "api_tokens",

@@ -33,6 +33,7 @@ export const BACKUP_TABLES = {
   usdConfirmations: schema.usdConfirmations,
   manualExpenses: schema.manualExpenses,
   inboxItems: schema.inboxItems,
+  personAliases: schema.personAliases,
   recurringRules: schema.recurringRules,
   recurringOverrides: schema.recurringOverrides,
   months: schema.months,
@@ -50,7 +51,7 @@ export const BACKUP_TABLES = {
 
 export type BackupTable = keyof typeof BACKUP_TABLES;
 /** Added later: backups made before them are still valid. API tokens are deliberately not backed up (re-issue them). */
-const OPTIONAL_TABLES: BackupTable[] = ["inboxItems"];
+const OPTIONAL_TABLES: BackupTable[] = ["inboxItems", "personAliases"];
 type Row = Record<string, unknown> & { id: string };
 
 export interface Backup {

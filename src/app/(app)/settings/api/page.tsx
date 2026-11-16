@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 import { getDb } from "@/server/db/client";
-import { listApiTokens } from "@/server/repos/inbox";
+import { listAliases, listApiTokens } from "@/server/repos/inbox";
 import { ApiAccess } from "./api-access";
 
 export const metadata: Metadata = { title: "API access" };
 
 export default async function ApiAccessPage() {
   const owner = await requireOwnerOrRedirect();
-  const tokens = await listApiTokens(getDb(), owner);
+  const [tokens, aliases] = await Promise.all([listApiTokens(getDb(), owner), listAliases(getDb(), owner)]);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -19,6 +19,7 @@ export default async function ApiAccessPage() {
         </Link>
       </div>
       <ApiAccess
+        aliases={aliases.map((a) => ({ id: a.id, alias: a.alias, displayName: a.displayName }))}
         tokens={tokens.map((t) => ({ id: t.id, name: t.name, prefix: t.prefix, lastUsedAt: t.lastUsedAt?.toISOString() ?? null, revokedAt: t.revokedAt?.toISOString() ?? null, createdAt: t.createdAt.toISOString() }))}
       />
     </div>

@@ -56,6 +56,15 @@ describe("create_expense", () => {
     });
   });
 
+  it("includes the Splitwise category when one is given, and leaves it out when not", async () => {
+    const a = scripted(json({ expenses: [{ id: 1 }], errors: {} }));
+    await a.api.createExpense({ ...input, categoryId: 12 });
+    expect(new URLSearchParams(String(a.calls[0]!.init.body)).get("category_id")).toBe("12");
+    const b = scripted(json({ expenses: [{ id: 2 }], errors: {} }));
+    await b.api.createExpense(input);
+    expect(new URLSearchParams(String(b.calls[0]!.init.body)).has("category_id")).toBe(false);
+  });
+
   it("a 200 that carries errors is a refusal, not a success", async () => {
     const { api } = scripted(json({ expenses: [], errors: { base: ["The total of everyone's owed shares must equal the cost"] } }));
     await expect(api.createExpense(input)).rejects.toThrow(SplitwiseRejectedError);

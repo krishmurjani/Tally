@@ -9,7 +9,7 @@ import { SaveStatus } from "@/components/save-status";
 import { shortDate } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
 import { useAction } from "@/lib/client/use-action";
-import { approveInboxAction, approveReadyAction, checkPostingAction, postToSplitwiseAction, previewSplitwisePostsAction, rejectInboxAction, setInboxCategoryAction } from "@/server/actions/inbox";
+import { approveInboxAction, approveReadyAction, checkPostingAction, postToSplitwiseAction, previewSplitwisePostsAction, rejectInboxAction, saveAliasAction, setInboxCategoryAction } from "@/server/actions/inbox";
 import type { PostPreview } from "@/server/repos/inbox-post";
 
 interface Row {
@@ -33,10 +33,40 @@ interface Row {
 
 const money = (r: { amountMinor: number; currency: string }) => (r.currency === "USD" ? formatUSD(r.amountMinor) : `${r.currency} ${(r.amountMinor / 100).toFixed(2)}`);
 
+/** "Who is “Prathamesh Adarkar”?": pick the Splitwise person once and Tally remembers it. */
+function WhoIs({ name, candidates, onSaved }: { name: string; candidates: { id: number; name: string }[]; onSaved: () => void }) {
+  const [pick, setPick] = useState("");
+  const save = useAction(saveAliasAction, { success: "Remembered" });
+  return (
+    <div className="mt-2 rounded-lg bg-surface/70 p-3">
+      <p className="text-sm">
+        Who is <b>“{name}”</b>?
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Select ariaLabel={`Who is ${name}`} value={pick} onChange={setPick} options={candidates.map((c) => ({ value: String(c.id), label: c.name }))} placeholder="Choose the person" className="w-full min-w-48 sm:w-64" />
+        <button
+          disabled={!pick || save.pending}
+          onClick={async () => {
+            const person = candidates.find((c) => String(c.id) === pick);
+            if (!person) return;
+            const r = await save.run({ name, splitwiseUserId: person.id, displayName: person.name });
+            if (r?.ok) onSaved();
+          }}
+          className="h-10 rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50 disabled:opacity-50"
+        >
+          Remember this
+        </button>
+      </div>
+      <SaveStatus state={save.state.kind === "saved" ? { kind: "idle" } : save.state} />
+    </div>
+  );
+}
+
 /** The confirmation: exactly what will be created in Splitwise, and nothing happens until the button is pressed. */
 function PostDrawer({ ids, onClose }: { ids: string[]; onClose: () => void }) {
   const [previews, setPreviews] = useState<PostPreview[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
   const post = useAction(postToSplitwiseAction, { success: false });
   const [outcome, setOutcome] = useState<string | null>(null);
 
@@ -44,7 +74,6 @@ function PostDrawer({ ids, onClose }: { ids: string[]; onClose: () => void }) {
     let live = true;
     setPreviews(null);
     setError(null);
-    setOutcome(null);
     previewSplitwisePostsAction({ ids })
       .then((r) => {
         if (!live) return;
@@ -55,9 +84,11 @@ function PostDrawer({ ids, onClose }: { ids: string[]; onClose: () => void }) {
     return () => {
       live = false;
     };
-  }, [ids]);
+  }, [ids, tick]);
 
-  const allOk = previews !== null && previews.length > 0 && previews.every((p) => p.ok);
+  const ready = previews?.filter((p) => p.ok) ?? [];
+  const flagged = (previews?.length ?? 0) - ready.length;
+  const groupLabel = (p: PostPreview) => (p.groupName ? (p.groupFound ? `Group: ${p.groupName}` : `No Splitwise group called “${p.groupName}”`) : "No group (between friends)");
   return (
     <Drawer open onClose={onClose} title={ids.length === 1 ? "Post to Splitwise" : `Post ${ids.length} to Splitwise`} subtitle="Check this carefully. It creates the expense in Splitwise, and the people in it will see it.">
       {error && (
@@ -75,14 +106,17 @@ function PostDrawer({ ids, onClose }: { ids: string[]; onClose: () => void }) {
               <p className="font-semibold tabular-nums">{money(p)}</p>
             </div>
             <p className="text-sm text-muted">
-              {shortDate(p.date)} · {p.plan ? (p.plan.groupName ? `Group: ${p.plan.groupName}` : "No group (between friends)") : "Group not found"}
+              {shortDate(p.date)} · {groupLabel(p)}
             </p>
             {p.plan && (
-              <ul className="mt-2 space-y-0.5 text-sm">
-                {p.plan.lines.map((l) => (
-                  <li key={l}>{l}</li>
-                ))}
-              </ul>
+              <>
+                <ul className="mt-2 space-y-0.5 text-sm">
+                  {p.plan.lines.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-muted">Splitwise category: {p.swCategory ?? "General (no match found)"}</p>
+              </>
             )}
             {p.problems.length > 0 && (
               <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-warn">
@@ -91,6 +125,9 @@ function PostDrawer({ ids, onClose }: { ids: string[]; onClose: () => void }) {
                 ))}
               </ul>
             )}
+            {p.unresolved.map((n) => (
+              <WhoIs key={n} name={n} candidates={p.candidates} onSaved={() => setTick((t) => t + 1)} />
+            ))}
           </li>
         ))}
       </ul>
@@ -103,23 +140,31 @@ function PostDrawer({ ids, onClose }: { ids: string[]; onClose: () => void }) {
         <div className="mt-5 space-y-2 border-t border-line pt-4">
           <div className="flex flex-wrap items-center gap-3">
             <button
-              disabled={!allOk || post.pending || outcome !== null}
+              disabled={ready.length === 0 || post.pending || outcome !== null}
               onClick={async () => {
-                const r = await post.run({ ids: previews.map((p) => p.id) });
+                const r = await post.run({ ids: ready.map((p) => p.id) });
                 if (r?.ok) {
-                  setOutcome(r.data.stoppedBecause ? `Posted ${r.data.posted}. Stopped: ${r.data.stoppedBecause}` : `Posted ${r.data.posted} to Splitwise. They'll appear in your expenses after the next sync.`);
+                  setOutcome(
+                    r.data.stoppedBecause
+                      ? `Posted ${r.data.posted}. Stopped: ${r.data.stoppedBecause}`
+                      : `Posted ${r.data.posted} to Splitwise.${flagged ? ` The ${flagged} flagged ${flagged === 1 ? "one is" : "ones are"} still in your Inbox.` : ""} They'll appear in your expenses after the next sync.`,
+                  );
                 }
               }}
               className="h-11 rounded-xl bg-forest-700 px-5 text-sm font-medium text-white transition hover:bg-forest-800 disabled:opacity-50"
             >
-              {post.pending ? "Posting…" : `Post ${previews.length === 1 ? "to Splitwise" : `${previews.length} to Splitwise`}`}
+              {post.pending ? "Posting…" : ready.length === 1 ? "Post 1 to Splitwise" : `Post ${ready.length} to Splitwise`}
             </button>
             <button onClick={onClose} className="h-11 rounded-xl border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50">
               {outcome ? "Close" : "Cancel"}
             </button>
             <SaveStatus state={post.state.kind === "saved" ? { kind: "idle" } : post.state} />
           </div>
-          {!allOk && <p className="text-xs text-muted">Fix what's flagged above first. Nothing will be posted while anything is flagged.</p>}
+          {flagged > 0 && (
+            <p className="text-xs text-muted">
+              {flagged} flagged {flagged === 1 ? "item is" : "items are"} left out and {flagged === 1 ? "stays" : "stay"} in your Inbox. Fix {flagged === 1 ? "it" : "them"} above, or later.
+            </p>
+          )}
         </div>
       )}
     </Drawer>
