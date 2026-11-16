@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { SaveStatus, type SaveState } from "@/components/save-status";
 import { Select } from "@/components/select";
+import { Collapsible } from "@/components/collapsible";
 import { Hero, HeroChip, HeroLabel, HeroNumber, HeroRing, HeroStats } from "@/components/hero";
 import { Badge, Card } from "@/components/ui";
 import { monthLabel } from "@/engines/dates";
@@ -520,9 +521,8 @@ export function Planner({
         )}
 
         <Card title="What this plan costs" action={<Badge tone="forest">updates as you move the sliders</Badge>}>
-          <details open>
-            <summary className="cursor-pointer text-sm text-muted">Show or hide the numbers</summary>
-            <p className="mt-3 text-sm">
+          <Collapsible defaultOpen title="Show the numbers" meta="plan vs lender's schedule">
+            <p className="text-sm">
               First payment from the start date: scheduled <b className="tabular-nums">{inr(futurePeriods[0]?.requiredMinor ?? 0)}</b> + extra <b className="tabular-nums">{inr(result.monthlyExtraInrMinor)}</b>
               {" "}= <b className="tabular-nums">{inr((futurePeriods[0]?.requiredMinor ?? 0) + result.monthlyExtraInrMinor)}</b> (about {usd0(toUsd((futurePeriods[0]?.requiredMinor ?? 0) + result.monthlyExtraInrMinor))}).
             </p>
@@ -615,7 +615,7 @@ export function Planner({
             <p className="mt-3 text-xs text-faint">
               Interest is charged every month on the whole balance. While the payment is below that month&apos;s interest (before the EMI starts), the balance goes up, not down. Rupee amounts are estimates; dollars use your rate and fee.
             </p>
-          </details>
+          </Collapsible>
         </Card>
 
         {portal && <PartPaymentCard q={portal} />}
@@ -677,9 +677,8 @@ export function Planner({
         )}
 
         <Card title="Month by month">
-          <details>
-            <summary className="cursor-pointer text-sm text-muted">{futurePeriods.length} months from the start date</summary>
-            <div className="mt-3 max-h-96 overflow-auto">
+          <Collapsible title="Every month from the start date" meta={`${futurePeriods.length} months`}>
+            <div className="max-h-96 overflow-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-surface text-left text-xs uppercase text-faint">
                   <tr>
@@ -711,7 +710,7 @@ export function Planner({
               </table>
               <p className="mt-2 text-xs text-faint">* recorded payment. Rows in amber: the payment is below that month&apos;s interest, so the balance grows. &ldquo;held&rdquo;: your extra is waiting to reach the portal&apos;s part-payment minimum.</p>
             </div>
-          </details>
+          </Collapsible>
         </Card>
 
         <Card title="Assumptions">

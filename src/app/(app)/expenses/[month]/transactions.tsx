@@ -1,5 +1,6 @@
 "use client";
 
+import { Collapsible } from "@/components/collapsible";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Drawer } from "@/components/drawer";
 import { Usd } from "@/components/money";
@@ -481,7 +482,6 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
   const [reason, setReason] = useState("");
   const [usdAmount, setUsdAmount] = useState("");
   const [editingManual, setEditingManual] = useState(false);
-  const [showWork, setShowWork] = useState(false);
   const newCategory = useNewCategory();
   const order = categories.map((c) => c.name);
   const tone = categoryTone(row.category, order);
@@ -520,27 +520,16 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
         {row.status !== "included" && <p className="mt-4 rounded-lg bg-white/10 px-3 py-2 text-[#d8e8dd]">{row.reasonText}</p>}
       </section>
 
-      <section className="rounded-2xl border border-line bg-surface">
-        <button type="button" aria-expanded={showWork} onClick={() => setShowWork((v) => !v)} className="flex w-full items-center justify-between gap-3 rounded-2xl px-5 py-4 text-left transition hover:bg-forest-50/50">
-          <span>
-            <span className="text-sm font-semibold">How my share was worked out</span>
-            <span className="ml-2 text-xs text-faint">{row.derivation.length} steps</span>
-          </span>
-          <span className={`text-muted transition-transform duration-200 ${showWork ? "rotate-180" : ""}`}>
-            <Chevron size={16} />
-          </span>
-        </button>
-        {showWork && (
-          <ol className="animate-fade-in space-y-3 border-t border-line px-5 py-4">
-            {row.derivation.map((d, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-forest-50 text-xs font-semibold text-brand-strong">{i + 1}</span>
-                <span className="min-w-0 break-words text-muted">{d}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <Collapsible className="rounded-2xl" title="How my share was worked out" meta={`${row.derivation.length} steps`}>
+        <ol className="space-y-3">
+          {row.derivation.map((d, i) => (
+            <li key={i} className="flex gap-3">
+              <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-forest-50 text-xs font-semibold text-brand-strong">{i + 1}</span>
+              <span className="min-w-0 break-words text-muted">{d}</span>
+            </li>
+          ))}
+        </ol>
+      </Collapsible>
 
       <Panel
         title="Category"

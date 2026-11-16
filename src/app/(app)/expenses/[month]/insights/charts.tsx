@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Collapsible } from "@/components/collapsible";
 import { monthLabel } from "@/engines/dates";
 import { formatUSD } from "@/engines/money";
 
@@ -21,9 +22,8 @@ function TipBox({ children }: { children: ReactNode }) {
 
 export function DataTable({ columns, rows }: { columns: string[]; rows: (string | number)[][] }) {
   return (
-    <details className="mt-3 text-sm">
-      <summary className="cursor-pointer text-muted">Data table</summary>
-      <table className="mt-2 w-full">
+    <Collapsible className="mt-3" title="Data table" meta="for screen readers and copying">
+      <table className="w-full text-sm">
         <thead className="text-left text-xs uppercase text-faint">
           <tr>
             {columns.map((c, i) => (
@@ -45,7 +45,7 @@ export function DataTable({ columns, rows }: { columns: string[]; rows: (string 
           ))}
         </tbody>
       </table>
-    </details>
+    </Collapsible>
   );
 }
 

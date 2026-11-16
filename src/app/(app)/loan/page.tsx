@@ -7,6 +7,7 @@ import { portalView, rollupDate } from "@/engines/loan/portal";
 import { effectiveStatus, paidTotals } from "@/engines/loan/ledger";
 import { sisterLedger } from "@/engines/loan/sister";
 import { formatINR } from "@/engines/money";
+import { Collapsible } from "@/components/collapsible";
 import { Hero, HeroChip, HeroLabel, HeroNumber, HeroStats } from "@/components/hero";
 import { Badge, Card } from "@/components/ui";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
@@ -179,9 +180,8 @@ export default async function LoanPage() {
           </div>
         </dl>
         <p className="mt-2 text-xs text-faint">Your instalments so far have been interest only, so none has reduced the loan. The unpaid part is added to the balance each month and itself earns interest.</p>
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-muted">Month by month ({history.length} months)</summary>
-          <div className="mt-3 max-h-96 overflow-auto">
+        <Collapsible className="mt-3" title="Month by month" meta={`${history.length} months`}>
+          <div className="max-h-96 overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-surface text-left text-xs uppercase text-faint">
                 <tr>
@@ -205,7 +205,7 @@ export default async function LoanPage() {
               </tbody>
             </table>
           </div>
-        </details>
+        </Collapsible>
       </Card>
 
       <Card title="Sanction & disbursements" action={<Provenance label="lender statement" />}>
