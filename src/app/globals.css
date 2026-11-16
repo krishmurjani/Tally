@@ -84,6 +84,51 @@ body {
   outline-offset: 2px;
 }
 
+/* Sliders: a visible filled track and a round, easy-to-grab thumb in both themes. --fill is set per slider (0-100%). */
+input[type="range"].range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y; /* horizontal drags move the slider; vertical ones still scroll the page */
+}
+input[type="range"].range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color-forest-600) var(--fill, 0%), var(--color-line) var(--fill, 0%));
+}
+input[type="range"].range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+input[type="range"].range::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-forest-600);
+}
+input[type="range"].range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -9px;
+  border-radius: 50%;
+  border: 3px solid var(--color-surface);
+  background: var(--color-forest-600);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+input[type="range"].range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 3px solid var(--color-surface);
+  background: var(--color-forest-600);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+input[type="range"].range:disabled { opacity: 0.45; cursor: not-allowed; }
+input[type="range"].range:focus-visible { outline-offset: 4px; }
+
 /* Small, quick motion. All of it is switched off for people who ask for reduced motion. */
 @keyframes drawer-in {
   from { transform: translateX(28px); opacity: 0; }

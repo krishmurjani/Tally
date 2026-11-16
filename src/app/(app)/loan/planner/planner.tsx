@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { SaveStatus, type SaveState } from "@/components/save-status";
 import { Select } from "@/components/select";
 import { Hero, HeroChip, HeroLabel, HeroNumber, HeroRing, HeroStats } from "@/components/hero";
@@ -22,6 +22,8 @@ export interface LinkOption {
 }
 
 const usd = (m: number) => formatUSD(m, { decimals: "auto" });
+const usd0 = (m: number) => formatUSD(m, { decimals: "never" });
+const fillPct = (value: number, max: number) => (max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0);
 const inr = (m: number) => formatINR(m, { decimals: "never" });
 
 function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
@@ -51,7 +53,8 @@ function MoneySlider({ label, valueMinor, onChange, max, step = 50, hint, disabl
           disabled={disabled}
           onChange={(e) => onChange(Math.round(Number(e.target.value) * 100))}
           aria-label={`${label} slider`}
-          className="h-11 flex-1 accent-forest-700"
+          style={{ "--fill": `${fillPct(valueMinor / 100, Math.max(max, valueMinor / 100))}%` } as CSSProperties}
+          className="range h-11 flex-1"
         />
         <span className={`flex w-32 items-center rounded-lg border bg-surface px-2 ${isParsableMinor(shown) || shown === "" ? "border-line" : "border-danger"}`}>
           <span className="text-muted">$</span>
@@ -85,7 +88,7 @@ function DecimalSlider({ label, value, onChange, max, step, suffix, hint }: { la
   return (
     <Field label={label} hint={hint}>
       <div className="flex items-center gap-3">
-        <input type="range" min={0} max={max} step={step} value={Number(value)} onChange={(e) => onChange(e.target.value)} aria-label={`${label} slider`} className="h-11 flex-1 accent-forest-700" />
+        <input type="range" min={0} max={max} step={step} value={Number(value)} onChange={(e) => onChange(e.target.value)} aria-label={`${label} slider`} style={{ "--fill": `${fillPct(Number(value), max)}%` } as CSSProperties} className="range h-11 flex-1" />
         <span className={`flex w-28 items-center rounded-lg border bg-surface px-2 ${isDecimalString(shown) ? "border-line" : "border-danger"}`}>
           <input
             inputMode="decimal"
@@ -257,6 +260,23 @@ export function Planner({
   const drift = s.linked && linkedNow ? linkDrift(s.linked, linkedNow) : null;
   const modelFinal = result.baseline.payoffDate?.slice(0, 7) ?? null;
   const futurePeriods = result.plan.periods.filter((p) => p.date >= inputs.startDate);
+  // Numbers for the "What this plan costs" table: the plan vs the lender's schedule, from the start date on.
+  const baselineFuture = result.baseline.periods.filter((p) => p.date >= inputs.startDate);
+  const sumOf = (ps: typeof futurePeriods, f: (p: (typeof futurePeriods)[number]) => number) => ps.reduce((a, p) => a + f(p), 0);
+  const costs = {
+    plan: { months: futurePeriods.length, paid: sumOf(futurePeriods, (p) => p.paymentMinor), interest: sumOf(futurePeriods, (p) => p.interestMinor), end: result.plan.payoffDate },
+    base: { months: baselineFuture.length, paid: sumOf(baselineFuture, (p) => p.paymentMinor), interest: sumOf(baselineFuture, (p) => p.interestMinor), end: result.baseline.payoffDate },
+  };
+  const rate = Number(result.effectiveInrPerUsd) || 1;
+  const toUsd = (inrMinor: number) => Math.round(inrMinor / rate);
+  // Only the years your plan is still paying; the schedule-only balance is shown alongside.
+  const yearRows = [...new Set(futurePeriods.map((p) => p.date.slice(0, 4)))].sort().map((y) => {
+    const a = futurePeriods.filter((p) => p.date.startsWith(y));
+    const b = baselineFuture.filter((p) => p.date.startsWith(y));
+    return { year: y, months: a.length, paid: sumOf(a, (p) => p.paymentMinor), interest: sumOf(a, (p) => p.interestMinor), end: a.length ? a.at(-1)!.closingMinor : 0, baseEnd: b.length ? b.at(-1)!.closingMinor : 0 };
+  });
+  const sooner = costs.base.months - costs.plan.months;
+  const soonerText = sooner > 0 ? `${Math.floor(sooner / 12) > 0 ? `${Math.floor(sooner / 12)} yr ` : ""}${sooner % 12 > 0 ? `${sooner % 12} mo` : ""} sooner`.trim() : "—";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_1fr]">
@@ -313,7 +333,13 @@ export function Planner({
           <div className="space-y-4">
             <MoneySlider label="Existing savings" valueMinor={s.existingSavingsUsdMinor} onChange={(m) => set("existingSavingsUsdMinor", m)} max={100000} step={500} />
             <MoneySlider label="Emergency reserve (never touched)" valueMinor={s.emergencyReserveUsdMinor} onChange={(m) => set("emergencyReserveUsdMinor", m)} max={50000} step={500} />
-            <MoneySlider label="Lump sum to the loan" valueMinor={s.lumpSumUsdMinor} onChange={(m) => set("lumpSumUsdMinor", Math.min(m, maxLump))} max={maxLump / 100} step={500} hint={`At most ${usd(maxLump)} (existing savings − reserve).`} />
+            <MoneySlider label="Lump sum to the loan" valueMinor={s.lumpSumUsdMinor} onChange={(m) => set("lumpSumUsdMinor", Math.min(m, maxLump))} max={maxLump / 100} step={500} hint={maxLump > 0 ? `At most ${usd(maxLump)} (existing savings − reserve).` : "Can't move yet: the lump sum comes out of existing savings above your reserve. Raise existing savings first."} />
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <button type="button" disabled={maxLump === 0} onClick={() => set("lumpSumUsdMinor", maxLump)} className="h-9 rounded-lg border border-line bg-surface px-3 font-medium transition hover:bg-forest-50 disabled:opacity-50">
+                Use all of it{maxLump > 0 ? ` (${usd(maxLump)})` : ""}
+              </button>
+              <span className="text-xs text-muted">Existing savings and the reserve only matter through the lump sum.</span>
+            </div>
           </div>
         </Card>
 
@@ -379,7 +405,7 @@ export function Planner({
             </Field>
             <Field label="Save first, then repay" hint="Keep extras (and the lump sum) in a high-yield savings account for N months, then convert and pay it in one go. Scheduled payments continue meanwhile. 0 = pay straight away.">
               <div className="flex items-center gap-3">
-                <input type="range" min={0} max={36} value={s.saveFirstMonths} onChange={(e) => set("saveFirstMonths", Number(e.target.value))} aria-label="Save-first months slider" className="h-11 flex-1 accent-forest-700" />
+                <input type="range" min={0} max={36} value={s.saveFirstMonths} onChange={(e) => set("saveFirstMonths", Number(e.target.value))} aria-label="Save-first months slider" style={{ "--fill": `${fillPct(s.saveFirstMonths, 36)}%` } as CSSProperties} className="range h-11 flex-1" />
                 <span className="w-24 text-right tabular-nums">{s.saveFirstMonths === 0 ? "Off" : `${s.saveFirstMonths} months`}</span>
               </div>
             </Field>
@@ -432,6 +458,105 @@ export function Planner({
             </ul>
           </Card>
         )}
+
+        <Card title="What this plan costs" action={<Badge tone="forest">updates as you move the sliders</Badge>}>
+          <details open>
+            <summary className="cursor-pointer text-sm text-muted">Show or hide the numbers</summary>
+            <p className="mt-3 text-sm">
+              First payment from the start date: scheduled <b className="tabular-nums">{inr(futurePeriods[0]?.requiredMinor ?? 0)}</b> + extra <b className="tabular-nums">{inr(result.monthlyExtraInrMinor)}</b>
+              {" "}= <b className="tabular-nums">{inr((futurePeriods[0]?.requiredMinor ?? 0) + result.monthlyExtraInrMinor)}</b> (about {usd0(toUsd((futurePeriods[0]?.requiredMinor ?? 0) + result.monthlyExtraInrMinor))}).
+            </p>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-faint">
+                  <tr>
+                    <th className="py-1 font-medium"> </th>
+                    <th className="py-1 text-right font-medium">Your plan</th>
+                    <th className="py-1 text-right font-medium">Lender&apos;s schedule</th>
+                    <th className="hidden py-1 text-right font-medium sm:table-cell">Difference</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_td]:border-t [&_td]:border-line/60 [&_td]:py-1.5">
+                  <tr>
+                    <td className="text-muted">Loan paid off</td>
+                    <td className="text-right font-medium tabular-nums">{costs.plan.end ? monthLabel(costs.plan.end.slice(0, 7), "short") : "—"}</td>
+                    <td className="text-right tabular-nums">{costs.base.end ? monthLabel(costs.base.end.slice(0, 7), "short") : "—"}</td>
+                    <td className="hidden text-right tabular-nums text-brand sm:table-cell">{soonerText}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Payments left</td>
+                    <td className="text-right font-medium tabular-nums">{costs.plan.months}</td>
+                    <td className="text-right tabular-nums">{costs.base.months}</td>
+                    <td className="hidden text-right tabular-nums text-brand sm:table-cell">{sooner > 0 ? `${sooner} fewer` : "—"}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Interest from here</td>
+                    <td className="text-right font-medium tabular-nums">{inr(costs.plan.interest)}</td>
+                    <td className="text-right tabular-nums">{inr(costs.base.interest)}</td>
+                    <td className="hidden text-right tabular-nums text-brand sm:table-cell">{costs.base.interest > costs.plan.interest ? `${inr(costs.base.interest - costs.plan.interest)} less` : "—"}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">You pay in total</td>
+                    <td className="text-right font-medium tabular-nums">{inr(costs.plan.paid)}</td>
+                    <td className="text-right tabular-nums">{inr(costs.base.paid)}</td>
+                    <td className="hidden text-right tabular-nums text-brand sm:table-cell">{costs.base.paid > costs.plan.paid ? `${inr(costs.base.paid - costs.plan.paid)} less` : "—"}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">…in dollars (at ₹{result.effectiveInrPerUsd}/$)</td>
+                    <td className="text-right font-medium tabular-nums">{usd0(toUsd(costs.plan.paid))}</td>
+                    <td className="text-right tabular-nums">{usd0(toUsd(costs.base.paid))}</td>
+                    <td className="hidden text-right tabular-nums text-brand sm:table-cell">{costs.base.paid > costs.plan.paid ? `${usd0(toUsd(costs.base.paid - costs.plan.paid))} less` : "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 className="mt-5 text-sm font-semibold">Year by year</h3>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase text-faint">
+                  <tr>
+                    <th className="py-1 font-medium">Year</th>
+                    <th className="py-1 text-right font-medium">You pay</th>
+                    <th className="py-1 text-right font-medium">Interest</th>
+                    <th className="py-1 text-right font-medium">Balance at year end</th>
+                    <th className="hidden py-1 text-right font-medium sm:table-cell">Schedule only</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_td]:border-t [&_td]:border-line/60 [&_td]:py-1.5">
+                  {yearRows.map((r) => (
+                    <tr key={r.year}>
+                      <td className="tabular-nums">
+                        {r.year}
+                        {r.months > 0 && r.months < 12 && <span className="text-xs text-faint"> · {r.months} mo</span>}
+                      </td>
+                      <td className="text-right tabular-nums">
+                        {r.months ? inr(r.paid) : "—"}
+                        {r.months > 0 && <span className="block text-xs text-faint">{usd0(toUsd(r.paid))}</span>}
+                      </td>
+                      <td className="text-right tabular-nums">{r.months ? inr(r.interest) : "—"}</td>
+                      <td className="text-right font-medium tabular-nums">{r.months ? inr(r.end) : "Paid off"}</td>
+                      <td className="hidden text-right tabular-nums text-muted sm:table-cell">{r.baseEnd ? inr(r.baseEnd) : "Paid off"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-line font-semibold">
+                    <td className="py-1.5">Total</td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(costs.plan.paid)}</td>
+                    <td className="py-1.5 text-right tabular-nums">{inr(costs.plan.interest)}</td>
+                    <td className="py-1.5"> </td>
+                    <td className="hidden sm:table-cell"> </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-faint">
+              Interest is charged every month on the whole balance. While the payment is below that month&apos;s interest (before the EMI starts), the balance goes up, not down. Rupee amounts are estimates; dollars use your rate and fee.
+            </p>
+          </details>
+        </Card>
 
         {portal && <PartPaymentCard q={portal} />}
 
