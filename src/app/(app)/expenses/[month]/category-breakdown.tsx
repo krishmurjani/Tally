@@ -122,7 +122,7 @@ export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: 
         <div className="mb-4 rounded-2xl border border-forest-600/40 bg-forest-50 p-3 sm:p-4">
           <p className="text-sm font-medium">
             Editing budget · total {formatUSD(draft.total)}
-            <span className="ml-2 font-normal text-muted">Type in any card. Cards update as you go.</span>
+            <span className="ml-2 font-normal text-muted">Tap a budget number on any card to change it. Cards update as you type.</span>
           </p>
           {draft.invalid.length > 0 && <p className="mt-1 text-sm text-danger">Fix: {draft.invalid.map((c) => c.name).join(", ")} (amounts like 100 or 100.50, not negative).</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -194,20 +194,32 @@ export function CategoryBreakdown({ rows, order, sourceLabel, budget }: { rows: 
                   <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: over ? "var(--color-danger)" : tone.bar }} />
                 </span>
                 {inline ? (
-                  <label className={`flex h-9 items-center rounded-lg border bg-surface px-2 text-sm text-ink ${draft.parsed[r.id!] === null ? "border-danger" : "border-line"}`}>
-                    <span className="mr-1 shrink-0 whitespace-nowrap text-xs text-muted">Budget $</span>
-                    <input
-                      inputMode="decimal"
-                      aria-label={`${r.name} budget`}
-                      value={draft.values[r.id!] ?? ""}
-                      onChange={(e) => draft.setValues((v) => ({ ...v, [r.id!]: e.target.value }))}
-                      className="h-full w-full min-w-0 bg-transparent outline-none"
-                    />
-                  </label>
-                ) : null}
-                <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
-                  {text}
-                </span>
+                  <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
+                    <span className="text-xs opacity-75">Budget</span>
+                    {/* The number itself is the field: it reads as text, with a dashed underline that says "type here". */}
+                    <label
+                      className={`-mx-1 inline-flex cursor-text items-baseline rounded-t-md px-1 font-bold tabular-nums transition focus-within:bg-white/15 focus-within:[border-bottom-style:solid] ${draft.parsed[r.id!] === null ? "border-b-2 border-dashed border-danger" : "border-b-2 border-dashed [border-color:color-mix(in_srgb,currentColor_50%,transparent)]"}`}
+                    >
+                      <span aria-hidden="true">$</span>
+                      <input
+                        inputMode="decimal"
+                        aria-label={`${r.name} budget`}
+                        value={draft.values[r.id!] ?? ""}
+                        onChange={(e) => draft.setValues((v) => ({ ...v, [r.id!]: e.target.value }))}
+                        onFocus={(e) => e.currentTarget.select()}
+                        style={{ width: `${Math.max(2, (draft.values[r.id!] ?? "").length + 0.6)}ch`, outline: "none" }}
+                        className="min-w-0 bg-transparent text-inherit outline-none"
+                      />
+                    </label>
+                    <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
+                      · {text}
+                    </span>
+                  </span>
+                ) : (
+                  <span className={`text-xs ${over ? "font-semibold text-danger" : ""}`} style={over ? undefined : { opacity: 0.8 }}>
+                    {text}
+                  </span>
+                )}
               </li>
             );
           })}
