@@ -95,7 +95,7 @@ export function SourceSwitch({ month, source }: { month: string; source: "api" |
               aria-checked={active}
               disabled={a.pending}
               onClick={() => !active && a.run({ month, source: value })}
-              className={`relative z-10 flex-1 whitespace-nowrap rounded-lg px-4 font-medium transition-colors duration-200 sm:flex-none ${active ? "text-white" : "text-muted hover:text-forest-800"}`}
+              className={`relative z-10 flex-1 whitespace-nowrap rounded-lg px-4 font-medium transition-colors duration-200 sm:flex-none ${active ? "text-white" : "text-muted hover:text-brand-strong"}`}
             >
               {label}
             </button>
@@ -187,7 +187,7 @@ export function ReopenMonthButton({ month, version }: { month: string; version: 
 
 /** One status chip: a dot plus a word ("Open", "Open · Month to date", "Closed"). */
 export function StatusChip({ closed, monthToDate }: { closed: boolean; monthToDate: boolean }) {
-  const tone = closed ? "bg-forest-700 text-white" : monthToDate ? "bg-warn-50 text-warn" : "bg-forest-50 text-forest-800";
+  const tone = closed ? "bg-forest-700 text-white" : monthToDate ? "bg-warn-50 text-warn" : "bg-forest-50 text-brand-strong";
   return (
     <span className={`inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-xs font-medium ${tone}`}>
       {closed ? (

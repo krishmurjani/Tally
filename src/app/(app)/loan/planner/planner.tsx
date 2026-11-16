@@ -311,7 +311,7 @@ export function Planner({
             <div className="min-w-0">
               <HeroLabel>Paid off</HeroLabel>
               <HeroNumber>{result.plan.payoffDate ? monthLabel(result.plan.payoffDate.slice(0, 7)) : "Not within 50 years"}</HeroNumber>
-              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-forest-100">
+              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#d8e8dd]">
                 <HeroChip>Estimate</HeroChip>
                 {result.plan.payoffDate && <span>{futurePeriods.length} months from {inputs.startDate}</span>}
               </p>
@@ -367,7 +367,7 @@ export function Planner({
                   <>
                     Extra <b>{usd(required.monthlyExtraUsdMinor)}</b>/month ({inr(usdToInr(required.monthlyExtraUsdMinor, fx))}) on top of the schedule.{" "}
                     {required.affordable ? (
-                      <span className="text-forest-700">Fits within the {usd(required.availableUsdMinor)} available.</span>
+                      <span className="text-brand">Fits within the {usd(required.availableUsdMinor)} available.</span>
                     ) : (
                       <span className="font-medium text-danger">More than the {usd(required.availableUsdMinor)} available each month.</span>
                     )}

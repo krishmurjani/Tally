@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { signIn } from "@/auth";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -14,6 +15,9 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const message = error ? (ERRORS[error] ?? "Sign-in failed. Please try again.") : null;
   return (
     <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-canvas px-4 py-12">
+      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
       <div aria-hidden="true" className="pointer-events-none absolute -top-40 left-1/2 size-[38rem] -translate-x-1/2 rounded-full bg-forest-100/70 blur-3xl" />
       <div className="relative w-full max-w-sm animate-pop-in rounded-3xl border border-line bg-surface p-8 text-center shadow-[0_8px_40px_-12px_rgba(27,66,49,0.25)] sm:p-10">
         <Logo size={64} className="mx-auto drop-shadow-sm" />

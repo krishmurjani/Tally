@@ -32,7 +32,7 @@ export function HistoryImport() {
           const r = await prev.run({ text: t });
           if (r?.ok) setPreview(r.data);
         }}
-        className="block w-full text-sm file:mr-3 file:h-11 file:rounded-xl file:border-0 file:bg-forest-50 file:px-4 file:font-medium file:text-forest-800"
+        className="block w-full text-sm file:mr-3 file:h-11 file:rounded-xl file:border-0 file:bg-forest-50 file:px-4 file:font-medium file:text-brand-strong"
       />
       <SaveStatus state={prev.state.kind === "saved" ? { kind: "idle" } : prev.state} />
 
@@ -70,7 +70,7 @@ export function HistoryImport() {
                   <td className="py-1.5 text-right tabular-nums text-muted">{m.knownMinor === null ? "—" : formatUSD(m.knownMinor)}</td>
                   <td className="py-1.5 pl-3">
                     {m.matches === false && <span className="font-medium text-danger">Differs by {formatUSD(m.totalMinor - (m.knownMinor ?? 0), { signed: true })}</span>}
-                    {m.matches === true && <span className="text-forest-700">Matches</span>}
+                    {m.matches === true && <span className="text-brand">Matches</span>}
                     {m.hasDetail && <span className="text-muted"> · has detailed data, summary will be ignored</span>}
                     {m.replaces && <span className="text-muted"> · replaces the earlier summary</span>}
                   </td>

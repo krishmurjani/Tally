@@ -58,7 +58,7 @@ export default async function LoanPage() {
           <div className="min-w-0">
             <HeroLabel>Estimated balance today</HeroLabel>
             <HeroNumber>{formatINR(balanceToday, { decimals: "never" })}</HeroNumber>
-            <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-forest-100">
+            <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-[#d8e8dd]">
               <HeroChip>Estimate, not lender ledger</HeroChip>
               {currentRate && <span>at {currentRate.annualPercent}% floating</span>}
             </p>

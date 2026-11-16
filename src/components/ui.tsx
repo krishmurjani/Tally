@@ -36,7 +36,7 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
 export function Badge({ tone = "neutral", children }: { tone?: "neutral" | "forest" | "warn" | "danger"; children: ReactNode }) {
   const tones = {
     neutral: "bg-canvas text-muted border-line",
-    forest: "bg-forest-50 text-forest-800 border-forest-100",
+    forest: "bg-forest-50 text-brand-strong border-forest-100",
     warn: "bg-warn-50 text-warn border-warn/20",
     danger: "bg-danger-50 text-danger border-danger/20",
   } as const;

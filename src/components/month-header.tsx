@@ -21,7 +21,7 @@ export function MonthHeader({ month, tab, badge }: { month: MonthKey; tab: (type
             key={t.key}
             href={`/expenses/${month}${t.suffix}`}
             aria-current={t.key === tab ? "page" : undefined}
-            className={`flex h-9 items-center justify-center rounded-lg px-3 ${t.key === tab ? "bg-forest-50 font-medium text-forest-800" : "text-muted hover:text-forest-800"}`}
+            className={`flex h-9 items-center justify-center rounded-lg px-3 ${t.key === tab ? "bg-forest-50 font-medium text-brand-strong" : "text-muted hover:text-brand-strong"}`}
           >
             {t.label}
           </Link>

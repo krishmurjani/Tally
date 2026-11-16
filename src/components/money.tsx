@@ -7,6 +7,6 @@ export function Usd({ minor, className = "", auto = false }: { minor: number; cl
 
 /** Budget status text; red only for overspending, always with words. */
 export function BudgetText({ status }: { status: BudgetStatus }) {
-  const cls = status.tone === "danger" ? "text-danger font-medium" : status.tone === "ok" ? "text-forest-700" : "text-muted";
+  const cls = status.tone === "danger" ? "text-danger font-medium" : status.tone === "ok" ? "text-brand" : "text-muted";
   return <span className={`text-sm ${cls}`}>{status.text}</span>;
 }

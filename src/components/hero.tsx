@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 
 /** The dark forest card that opens a page: a headline number, an optional ring, and a row of supporting figures. */
 export function Hero({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-3xl bg-forest-800 p-5 text-canvas sm:p-8 ${className}`}>{children}</section>;
+  return <section className={`rounded-3xl bg-hero p-5 text-[#f7f5ef] sm:p-8 ${className}`}>{children}</section>;
 }
 
 export function HeroLabel({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-forest-100/80">{children}</p>;
+  return <p className="text-sm text-[#d8e8dd]/80">{children}</p>;
 }
 
 export function HeroNumber({ children }: { children: ReactNode }) {
@@ -14,15 +14,15 @@ export function HeroNumber({ children }: { children: ReactNode }) {
 }
 
 export function HeroChip({ children, tone = "soft" }: { children: ReactNode; tone?: "soft" | "warn" }) {
-  return <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-semibold ${tone === "warn" ? "bg-warn-50 text-warn" : "bg-white/15 text-canvas"}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-sm font-semibold ${tone === "warn" ? "bg-warn-50 text-warn" : "bg-white/15 text-[#f7f5ef]"}`}>{children}</span>;
 }
 
 export function HeroStat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="text-sm text-forest-100/80">{label}</p>
+      <p className="text-sm text-[#d8e8dd]/80">{label}</p>
       <p className="mt-0.5 break-words text-xl font-semibold tracking-tight tabular-nums">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-forest-100/70">{hint}</p>}
+      {hint && <p className="mt-0.5 text-xs text-[#d8e8dd]/70">{hint}</p>}
     </div>
   );
 }
@@ -54,7 +54,7 @@ export function HeroRing({ fraction, label, caption, ariaLabel }: { fraction: nu
       <div className="absolute inset-0 grid place-items-center text-center">
         <div>
           <p className="text-3xl font-bold leading-none tracking-tight sm:text-4xl">{label}</p>
-          <p className="mt-1 max-w-[6.5rem] text-xs text-forest-100/80">{caption}</p>
+          <p className="mt-1 max-w-[6.5rem] text-xs text-[#d8e8dd]/80">{caption}</p>
         </div>
       </div>
     </div>

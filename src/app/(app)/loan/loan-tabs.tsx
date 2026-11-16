@@ -17,7 +17,7 @@ export function LoanTabs() {
       {TABS.map((t) => {
         const active = t.href === "/loan" ? path === "/loan" : path.startsWith(t.href);
         return (
-          <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined} className={`flex h-9 items-center justify-center rounded-lg px-3 ${active ? "bg-forest-50 font-medium text-forest-800" : "text-muted hover:text-forest-800"}`}>
+          <Link key={t.href} href={t.href} aria-current={active ? "page" : undefined} className={`flex h-9 items-center justify-center rounded-lg px-3 ${active ? "bg-forest-50 font-medium text-brand-strong" : "text-muted hover:text-brand-strong"}`}>
             {t.label}
           </Link>
         );

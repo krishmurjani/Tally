@@ -31,7 +31,7 @@ export default async function SisterPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title={`Not yet reimbursed · ${l.unreimbursed.length}`}>
           {l.unreimbursed.length === 0 ? (
-            <p className="text-sm text-forest-700">Everything she paid has been reimbursed.</p>
+            <p className="text-sm text-brand">Everything she paid has been reimbursed.</p>
           ) : (
             <ul className="divide-y divide-line/70 text-sm">
               {l.unreimbursed.map((u) => (

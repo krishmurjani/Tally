@@ -35,7 +35,7 @@ export function UploadForm() {
         multiple
         accept=".csv,text/csv"
         required
-        className="block w-full text-sm file:mr-3 file:h-11 file:rounded-xl file:border-0 file:bg-forest-50 file:px-4 file:font-medium file:text-forest-800"
+        className="block w-full text-sm file:mr-3 file:h-11 file:rounded-xl file:border-0 file:bg-forest-50 file:px-4 file:font-medium file:text-brand-strong"
       />
       <div className="flex items-center gap-3">
         <button type="submit" disabled={state.kind === "saving"} className="h-11 rounded-xl bg-forest-700 px-5 text-sm font-medium text-white disabled:opacity-60">

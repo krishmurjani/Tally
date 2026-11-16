@@ -112,7 +112,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
           {attention === 0 ? (
             <section aria-label="Needs attention" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-line bg-surface px-4 py-3.5 text-sm sm:px-5">
               <span className="font-semibold">Needs attention</span>
-              <span className="text-forest-700">{v.kind === "summary" ? "Nothing to review — imported summary" : "Nothing to review"}</span>
+              <span className="text-brand">{v.kind === "summary" ? "Nothing to review — imported summary" : "Nothing to review"}</span>
             </section>
           ) : (
             <Card title={`Needs attention · ${attention}`}>

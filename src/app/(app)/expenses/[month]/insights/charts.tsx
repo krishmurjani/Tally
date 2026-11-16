@@ -7,11 +7,11 @@ import { formatUSD } from "@/engines/money";
 
 /** Validated categorical order (dataviz reference palette, light mode, checked on the app surface). */
 export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
-const FOREST = "#2f6b4f";
-const DANGER = "#b42318";
-const GRID = "#e6e1d6";
-const MUTED = "#5f675f";
-const SURFACE = "#fffdf8";
+const FOREST = "var(--color-forest-600)";
+const DANGER = "var(--color-danger)";
+const GRID = "var(--color-line)";
+const MUTED = "var(--color-muted)";
+const SURFACE = "var(--color-surface)";
 const usd = (m: number) => formatUSD(m, { decimals: "auto" });
 const axisUsd = (v: number) => (Math.abs(v) >= 100000 ? `$${Math.round(v / 100000)}k` : `$${Math.round(v / 100)}`);
 
@@ -129,7 +129,7 @@ export function BudgetBars({ data }: { data: { category: string; actual: number;
               }}
             />
             <Legend wrapperStyle={{ fontSize: 12, color: MUTED }} />
-            <Bar dataKey="budget" name="Budget" fill="#d8d2c4" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+            <Bar dataKey="budget" name="Budget" fill="var(--color-line)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
             <Bar dataKey="actual" name="Actual (red = over budget)" radius={[0, 4, 4, 0]} isAnimationActive={false}>
               {rows.map((d) => (
                 <Cell key={d.category} fill={d.over ? DANGER : FOREST} />
@@ -161,7 +161,7 @@ export function TrendBars({ points }: { points: TrendPoint[] }) {
           <BarChart data={data} margin={{ left: 0, right: 8 }}>
             <defs>
               <pattern id="mtd-stripes" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-                <rect width="6" height="6" fill="#d8e8dd" />
+                <rect width="6" height="6" fill="var(--color-forest-100)" />
                 <line x1="0" y1="0" x2="0" y2="6" stroke={FOREST} strokeWidth="3" />
               </pattern>
             </defs>
@@ -219,7 +219,7 @@ export function IncomeVsExpenses({ points }: { points: TrendPoint[] }) {
                     <b>{monthLabel(d.month)}</b>
                     <br />
                     Income {d.income === null ? "Not recorded" : usd(d.income)} · Spent {d.total === null ? "Not recorded" : usd(d.total)}
-                    {left !== null && <div className={left < 0 ? "text-danger" : "text-forest-700"}>{left < 0 ? `${usd(-left)} more spent than earned` : `${usd(left)} left over`}</div>}
+                    {left !== null && <div className={left < 0 ? "text-danger" : "text-brand"}>{left < 0 ? `${usd(-left)} more spent than earned` : `${usd(left)} left over`}</div>}
                   </TipBox>
                 );
               }}

@@ -32,7 +32,7 @@ export function RestoreForm() {
           const r = await prev.run(fd());
           if (r?.ok) setPreview(r.data);
         }}
-        className="block w-full text-sm file:mr-3 file:h-11 file:rounded-xl file:border-0 file:bg-forest-50 file:px-4 file:font-medium file:text-forest-800"
+        className="block w-full text-sm file:mr-3 file:h-11 file:rounded-xl file:border-0 file:bg-forest-50 file:px-4 file:font-medium file:text-brand-strong"
       />
       <SaveStatus state={prev.state.kind === "saved" ? { kind: "idle" } : prev.state} />
       {preview && (

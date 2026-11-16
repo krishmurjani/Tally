@@ -252,7 +252,7 @@ export function PaymentsTable({ payments }: { payments: PaymentRecord[] }) {
                 <td className="py-2">
                   <span className="flex flex-wrap items-center gap-1">
                     {(st === "planned" || st === "overdue") && <MarkPaid p={p} />}
-                    <button onClick={() => setEditing(p)} className="h-9 rounded-lg px-3 text-forest-700 hover:bg-forest-50">
+                    <button onClick={() => setEditing(p)} className="h-9 rounded-lg px-3 text-brand hover:bg-forest-50">
                       Edit
                     </button>
                   </span>

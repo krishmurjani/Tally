@@ -21,7 +21,7 @@ export default async function BackupPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Backup &amp; export</h1>
-        <Link href="/settings" className="text-sm font-medium text-forest-700 hover:underline">
+        <Link href="/settings" className="text-sm font-medium text-brand hover:underline">
           Back to settings
         </Link>
       </div>

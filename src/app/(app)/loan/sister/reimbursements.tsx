@@ -63,7 +63,7 @@ function Row({ r }: { r: ReimbursementRecord }) {
       </span>
       <span className="flex items-center gap-1">
         <span className="mr-2 font-medium tabular-nums">{formatINR(r.amountMinor)}</span>
-        <button onClick={() => setEditing(true)} className="h-9 rounded-lg px-3 text-forest-700 hover:bg-forest-50">
+        <button onClick={() => setEditing(true)} className="h-9 rounded-lg px-3 text-brand hover:bg-forest-50">
           Edit
         </button>
         <button disabled={del.pending} onClick={() => del.run({ id: r.id, expectedVersion: r.version })} className="h-9 rounded-lg px-3 text-danger hover:bg-danger-50">

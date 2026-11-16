@@ -5,8 +5,9 @@ import { Drawer } from "@/components/drawer";
 import { SaveStatus } from "@/components/save-status";
 import { Badge } from "@/components/ui";
 import { longDate, monthBounds, shortDate, todayNY } from "@/engines/dates";
+import { biweeklyPaydaysInMonth } from "@/engines/income";
 import { formatUSD } from "@/engines/money";
-import { DEFAULT_EMPLOYER, INCOME_SOURCE_LABEL, INCOME_SOURCE_OPTIONS, type IncomeSourceType } from "@/lib/income-sources";
+import { DEFAULT_EMPLOYER, INCOME_SOURCE_LABEL, PAYDAY_ANCHOR, INCOME_SOURCE_OPTIONS, type IncomeSourceType } from "@/lib/income-sources";
 import { newIdempotencyKey, useAction } from "@/lib/client/use-action";
 import { addIncomeAction, deleteIncomeAction, updateIncomeAction } from "@/server/actions/income";
 
@@ -33,11 +34,11 @@ export function sourceTitle(e: { sourceType: IncomeSourceType; employer: string 
   return e.sourceType === "employer" ? e.employer || "Employer" : e.employer ? `${INCOME_SOURCE_LABEL[e.sourceType]} · ${e.employer}` : INCOME_SOURCE_LABEL[e.sourceType];
 }
 
-function IncomeForm({ month, entry, onDone }: { month: string; entry: Entry | null; onDone: () => void }) {
+function IncomeForm({ month, entry, onDone, initialDate }: { month: string; entry: Entry | null; onDone: () => void; initialDate?: string }) {
   const { start, end } = monthBounds(month);
   const today = todayNY();
   const [idem] = useState(newIdempotencyKey);
-  const [date, setDate] = useState(entry?.date ?? (today >= start && today <= end ? today : start));
+  const [date, setDate] = useState(entry?.date ?? initialDate ?? (today >= start && today <= end ? today : start));
   const [amount, setAmount] = useState(entry ? (entry.amountMinor / 100).toFixed(2) : "");
   const [sourceType, setSourceType] = useState<IncomeSourceType>(entry?.sourceType ?? "employer");
   const [name, setName] = useState(entry ? (entry.employer ?? "") : DEFAULT_EMPLOYER);
@@ -163,9 +164,37 @@ function Row({ e, month }: { e: Entry; month: string }) {
   );
 }
 
+/** Expected UNYT paydays (every 2 weeks) that have no paycheck recorded yet. One tap opens the form with that date. */
+function ExpectedPaydays({ month, entries }: { month: string; entries: Entry[] }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const recorded = new Set(entries.filter((e) => e.sourceType === "employer").map((e) => e.date));
+  const due = biweeklyPaydaysInMonth(PAYDAY_ANCHOR, month).filter((d) => d >= PAYDAY_ANCHOR && !recorded.has(d));
+  if (due.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-dashed border-line px-4 py-3">
+      <p className="text-sm font-medium">Expected paydays</p>
+      <p className="text-xs text-muted">Every 2 weeks from {shortDate(PAYDAY_ANCHOR)}. Tap one to record that paycheck.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {due.map((d) => (
+          <button key={d} onClick={() => setOpen(d)} className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-medium transition hover:bg-forest-50">
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M10 4.5v11M4.5 10h11" />
+            </svg>
+            {shortDate(d)}
+          </button>
+        ))}
+      </div>
+      <Drawer open={open !== null} onClose={() => setOpen(null)} title="Add paycheck" subtitle={open ? longDate(open) : undefined}>
+        {open && <IncomeForm key={open} month={month} entry={null} initialDate={open} onDone={() => setOpen(null)} />}
+      </Drawer>
+    </div>
+  );
+}
+
 export function IncomePanel({ month, entries }: { month: string; entries: Entry[] }) {
   return (
     <div className="space-y-4">
+      <ExpectedPaydays month={month} entries={entries} />
       {entries.length > 0 && (
         <ul className="divide-y divide-line/70">
           {entries.map((e) => (

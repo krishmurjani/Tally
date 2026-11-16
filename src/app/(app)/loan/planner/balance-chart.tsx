@@ -20,9 +20,9 @@ export function BalanceChart({ plan, baseline, from }: { plan: Period[]; baselin
     <div className="h-72">
       <ResponsiveContainer>
         <LineChart data={data} margin={{ left: 4, right: 12, top: 8 }}>
-          <CartesianGrid vertical={false} stroke="#e6e1d6" />
-          <XAxis dataKey="date" ticks={ticks} tickFormatter={(d: string) => d.slice(0, 4)} stroke="#5f675f" fontSize={12} tickLine={false} />
-          <YAxis tickFormatter={lakhs} stroke="#5f675f" fontSize={12} width={52} />
+          <CartesianGrid vertical={false} stroke="var(--color-line)" />
+          <XAxis dataKey="date" ticks={ticks} tickFormatter={(d: string) => d.slice(0, 4)} stroke="var(--color-muted)" fontSize={12} tickLine={false} />
+          <YAxis tickFormatter={lakhs} stroke="var(--color-muted)" fontSize={12} width={52} />
           <Tooltip
             content={({ active, payload }) => {
               const d = active ? (payload?.[0]?.payload as (typeof data)[number] | undefined) : undefined;
@@ -40,7 +40,7 @@ export function BalanceChart({ plan, baseline, from }: { plan: Period[]; baselin
               );
             }}
           />
-          <Legend wrapperStyle={{ fontSize: 12, color: "#5f675f" }} />
+          <Legend wrapperStyle={{ fontSize: 12, color: "var(--color-muted)" }} />
           <Line type="monotone" dataKey="baseline" name="Schedule only" stroke={BASE} strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
           <Line type="monotone" dataKey="plan" name="My plan" stroke={PLAN} strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
         </LineChart>

@@ -14,7 +14,7 @@ export function RateForm() {
   const a = useAction(addRateChangeAction, { success: "Rate change recorded" });
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="h-10 rounded-lg px-3 text-sm font-medium text-forest-700 hover:bg-forest-50">
+      <button onClick={() => setOpen(true)} className="h-10 rounded-lg px-3 text-sm font-medium text-brand hover:bg-forest-50">
         + Record a rate change
       </button>
     );

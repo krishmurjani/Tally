@@ -18,7 +18,7 @@ import { RowDrawer, statusLabel } from "./transactions";
 function DismissLarge({ rowKey }: { rowKey: string }) {
   const a = useAction(setLargeDismissedAction, { success: "Dismissed — you can bring it back from the expense" });
   return (
-    <button disabled={a.pending} onClick={() => a.run({ rowKey, dismissed: true })} title="This is expected — stop flagging this expense" className="h-9 shrink-0 rounded-lg border border-line px-3 text-sm text-muted hover:bg-forest-50 hover:text-forest-800 disabled:opacity-60">
+    <button disabled={a.pending} onClick={() => a.run({ rowKey, dismissed: true })} title="This is expected — stop flagging this expense" className="h-9 shrink-0 rounded-lg border border-line px-3 text-sm text-muted hover:bg-forest-50 hover:text-brand-strong disabled:opacity-60">
       {a.pending ? "…" : "Dismiss"}
     </button>
   );
@@ -59,7 +59,7 @@ export function NeedsAttention({
     });
   const canBulk = !closed && items.length > 1;
   if (!items.length && !pendingDecisions.length) {
-    return <p className="text-sm text-forest-700">Nothing needs your attention this month.</p>;
+    return <p className="text-sm text-brand">Nothing needs your attention this month.</p>;
   }
   const why = (r: DisplayRow) =>
     r.status === "review" ? r.reasonText : r.flags.includes("needs_category") ? (r.suggestion ? `Needs category — suggestion: ${r.suggestion}` : `Needs category (Splitwise: ${r.sourceCategory ?? "none"})`) : "Large expense";

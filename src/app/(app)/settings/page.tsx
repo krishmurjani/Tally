@@ -59,19 +59,19 @@ export default async function SettingsPage() {
       <Card title="Data">
         <ul className="space-y-2 text-sm">
           <li>
-            <Link href="/settings/backup" className="font-medium text-forest-700 hover:underline">
+            <Link href="/settings/backup" className="font-medium text-brand hover:underline">
               Backup &amp; export
             </Link>{" "}
             <span className="text-muted">— full backup, CSV spreadsheets, restore with a dry run</span>
           </li>
           <li>
-            <Link href="/settings/history" className="font-medium text-forest-700 hover:underline">
+            <Link href="/settings/history" className="font-medium text-brand hover:underline">
               Import history
             </Link>{" "}
             <span className="text-muted">— monthly category totals from old spreadsheets</span>
           </li>
           <li>
-            <Link href="/expenses/import" className="font-medium text-forest-700 hover:underline">
+            <Link href="/expenses/import" className="font-medium text-brand hover:underline">
               Import Splitwise CSV exports
             </Link>{" "}
             <span className="text-muted">— fallback when sync isn&apos;t available</span>

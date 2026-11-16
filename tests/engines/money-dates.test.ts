@@ -59,6 +59,12 @@ describe("dates", () => {
     expect(addMonths("2026-01", -1)).toBe("2025-12");
     expect(dateInMonth("2026-02", 31)).toBe("2026-02-28");
   });
+  it("UNYT paydays: 11/6, 11/20, 12/4 and so on", () => {
+    expect(biweekly("2026-11-06", "2026-11")).toEqual(["2026-11-06", "2026-11-20"]);
+    expect(biweekly("2026-11-06", "2026-12")).toEqual(["2026-12-04", "2026-12-18"]);
+    expect(biweekly("2026-11-06", "2027-01")).toEqual(["2027-01-01", "2027-01-15", "2027-01-29"]);
+  });
+
   it("biweekly paydays: some months have 3", () => {
     expect(biweekly("2026-01-02", "2026-01")).toEqual(["2026-01-02", "2026-01-16", "2026-01-30"]);
     expect(biweekly("2026-01-02", "2026-02")).toEqual(["2026-02-13", "2026-02-27"]);

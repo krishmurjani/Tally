@@ -21,7 +21,7 @@ export function Nav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={`flex h-11 items-center justify-center rounded-xl px-4 text-sm font-medium transition ${
-              active ? "bg-forest-700 text-white" : "text-muted hover:bg-forest-50 hover:text-forest-800"
+              active ? "bg-forest-700 text-white" : "text-muted hover:bg-forest-50 hover:text-brand-strong"
             }`}
           >
             {item.label}

@@ -50,7 +50,7 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
           role="radio"
           aria-checked={view === value}
           onClick={() => onChange(value)}
-          className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 font-medium transition-colors duration-200 ${view === value ? "text-white" : "text-muted hover:text-forest-800"}`}
+          className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 font-medium transition-colors duration-200 ${view === value ? "text-white" : "text-muted hover:text-brand-strong"}`}
         >
           {icon}
           {label}
@@ -121,7 +121,7 @@ export function CategoryBreakdown({ rows, order, sourceLabel, editor }: { rows: 
               <li key={r.name} className="flex min-w-0 flex-col gap-2 rounded-2xl p-3.5 sm:p-4" style={{ background: tone.background, border: `1px solid ${tone.border}`, color: tone.color }}>
                 <span className="truncate text-sm font-semibold">{r.name}</span>
                 <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{formatUSD(r.actualMinor)}</span>
-                <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-white/70">
+                <span aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-canvas/60">
                   <span className="block h-full rounded-full" style={{ width: `${pctOf(r)}%`, background: r.over ? "var(--color-danger)" : tone.bar }} />
                 </span>
                 <span className={`text-xs ${r.over ? "font-semibold text-danger" : ""}`} style={r.over ? undefined : { opacity: 0.8 }}>

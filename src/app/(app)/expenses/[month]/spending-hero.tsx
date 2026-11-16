@@ -45,17 +45,17 @@ export function SpendingHero({
     status.tone === "danger"
       ? "bg-danger-50 text-danger"
       : status.tone === "ok"
-        ? "bg-forest-100 text-forest-800"
-        : "bg-white/15 text-canvas";
+        ? "bg-white/15 text-[#d8e8dd]"
+        : "bg-white/15 text-[#f7f5ef]";
   const previousName = monthLabel(addMonths(month, -1)).split(" ")[0];
 
   return (
-    <section className="rounded-3xl bg-forest-800 p-5 text-canvas sm:p-8">
+    <section className="rounded-3xl bg-hero p-5 text-[#f7f5ef] sm:p-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-8">
         <div className="min-w-0 sm:flex-1 sm:basis-72">
-          <p className="text-sm text-forest-100/80">{isCurrentMonth ? "My share so far" : "My share of spending"}</p>
+          <p className="text-sm text-[#d8e8dd]/80">{isCurrentMonth ? "My share so far" : "My share of spending"}</p>
           <p className="mt-2 text-5xl font-bold leading-none tracking-tight tabular-nums sm:text-6xl">{formatUSD(totalMinor)}</p>
-          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-forest-100">
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm text-[#d8e8dd]">
             <span className={`rounded-md px-2 py-0.5 font-semibold ${chip}`}>{status.text.split(" · ")[0]}</span>
             {budgetMinor > 0 && <span>a {formatUSD(budgetMinor, { decimals: "auto" })} budget</span>}
           </p>
@@ -65,10 +65,10 @@ export function SpendingHero({
                 <path d={changeMinor < 0 ? "M10 4.5v11M5 11l5 5 5-5" : "M10 15.5v-11M5 9l5-5 5 5"} />
               </svg>
               {formatUSD(Math.abs(changeMinor))} {changeMinor > 0 ? "more" : "less"} than {previousName}
-              {previousMinor !== null && <span className="font-normal text-forest-100/70">({formatUSD(previousMinor)})</span>}
+              {previousMinor !== null && <span className="font-normal text-[#d8e8dd]/70">({formatUSD(previousMinor)})</span>}
             </p>
           )}
-          {changeMinor === null && <p className="mt-2 text-sm text-forest-100/70">Previous month not recorded</p>}
+          {changeMinor === null && <p className="mt-2 text-sm text-[#d8e8dd]/70">Previous month not recorded</p>}
         </div>
 
         <div className="flex items-center gap-6 sm:contents">
@@ -81,26 +81,26 @@ export function SpendingHero({
             <div className="absolute inset-0 grid place-items-center text-center">
               <div>
                 <p className="text-3xl font-bold leading-none tracking-tight sm:text-4xl">{pct === null ? "—" : `${Math.round(pct * 100)}%`}</p>
-                <p className="mt-1 text-xs text-forest-100/80">{pct === null ? "no budget" : "of budget"}</p>
+                <p className="mt-1 text-xs text-[#d8e8dd]/80">{pct === null ? "no budget" : "of budget"}</p>
               </div>
             </div>
           </div>
 
           <dl className="flex min-w-0 flex-1 flex-col gap-4 text-sm sm:min-w-32 sm:flex-none">
             <div>
-              <dt className="flex items-center gap-2 text-forest-100/80">
+              <dt className="flex items-center gap-2 text-[#d8e8dd]/80">
                 Income
-                <Link href={`/expenses/${month}/income`} aria-label="Add income" title="Add income" className="grid size-6 place-items-center rounded-full border border-white/25 text-forest-100 transition hover:bg-white/10">
+                <Link href={`/expenses/${month}/income`} aria-label="Add income" title="Add income" className="grid size-6 place-items-center rounded-full border border-white/25 text-[#d8e8dd] transition hover:bg-white/10">
                   <svg aria-hidden="true" viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <path d="M10 4v12M4 10h12" />
                   </svg>
                 </Link>
               </dt>
-              <dd className={`mt-0.5 text-lg font-semibold ${incomeMinor === null ? "text-forest-100/60" : ""}`}>{incomeMinor === null ? "Not recorded" : formatUSD(incomeMinor)}</dd>
+              <dd className={`mt-0.5 text-lg font-semibold ${incomeMinor === null ? "text-[#d8e8dd]/60" : ""}`}>{incomeMinor === null ? "Not recorded" : formatUSD(incomeMinor)}</dd>
             </div>
             <div>
-              <dt className="text-forest-100/80">Left over</dt>
-              <dd className={`mt-0.5 text-lg font-semibold ${leftOverMinor === null ? "text-forest-100/60" : leftOverMinor < 0 ? "text-[#ffd0cb]" : ""}`}>{leftOverMinor === null ? "Not recorded" : formatUSD(leftOverMinor)}</dd>
+              <dt className="text-[#d8e8dd]/80">Left over</dt>
+              <dd className={`mt-0.5 text-lg font-semibold ${leftOverMinor === null ? "text-[#d8e8dd]/60" : leftOverMinor < 0 ? "text-[#ffd0cb]" : ""}`}>{leftOverMinor === null ? "Not recorded" : formatUSD(leftOverMinor)}</dd>
             </div>
           </dl>
         </div>
@@ -108,7 +108,7 @@ export function SpendingHero({
 
       {top.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-white/15 pt-5">
-          <span className="mr-1 text-sm text-forest-100/80">Biggest:</span>
+          <span className="mr-1 text-sm text-[#d8e8dd]/80">Biggest:</span>
           {top.map((t) => (
             <span key={t.name} className="inline-flex h-8 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-medium">
               <span aria-hidden="true" className="size-2 rounded-full" style={{ background: t.dot }} />

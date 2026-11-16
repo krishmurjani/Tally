@@ -85,7 +85,7 @@ function Chevron() {
 
 function Check() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-forest-700">
+    <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-brand">
       <path d="M4.5 10.5l3.5 3.5 7.5-8" />
     </svg>
   );
@@ -249,7 +249,7 @@ export function Select({
               setOpen(false);
               onCreate();
             }}
-            className="mt-1 flex w-full items-center gap-2.5 rounded-lg border-t border-line px-3 pb-2 pt-3 text-left text-sm font-medium text-forest-700 transition hover:bg-forest-50"
+            className="mt-1 flex w-full items-center gap-2.5 rounded-lg border-t border-line px-3 pb-2 pt-3 text-left text-sm font-medium text-brand transition hover:bg-forest-50"
           >
             <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M10 4.5v11M4.5 10h11" />
@@ -320,7 +320,7 @@ export function MultiSelect({
           })}
         </div>
         {values.length > 0 && (
-          <button type="button" onClick={() => onChange([])} className="mt-1 w-full rounded-lg border-t border-line px-3 pb-1.5 pt-2.5 text-left text-sm font-medium text-forest-700 hover:underline">
+          <button type="button" onClick={() => onChange([])} className="mt-1 w-full rounded-lg border-t border-line px-3 pb-1.5 pt-2.5 text-left text-sm font-medium text-brand hover:underline">
             Clear selection ({values.length})
           </button>
         )}

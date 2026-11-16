@@ -1,6 +1,7 @@
 import { signOut } from "@/auth";
 import { Logo } from "@/components/logo";
 import { Nav } from "@/components/nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { ToastProvider } from "@/components/toast";
 import { requireOwnerOrRedirect } from "@/server/auth-guard";
 
@@ -16,12 +17,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="text-lg font-semibold tracking-tight">Tally</span>
           </div>
           <Nav />
+          <div className="order-2 flex items-center gap-2 sm:order-3">
+          <ThemeToggle />
           <form
             action={async () => {
               "use server";
               await signOut({ redirectTo: "/signin" });
             }}
-            className="order-2 sm:order-3"
           >
             <button type="submit" title={owner.email} aria-label="Sign out" className="inline-flex size-11 items-center justify-center gap-2 rounded-xl border border-line bg-surface text-sm font-medium transition hover:bg-forest-50 sm:w-auto sm:px-4">
               <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -30,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <span className="hidden sm:inline">Sign out</span>
             </button>
           </form>
+          </div>
         </div>
       </header>
       <main className="w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>

@@ -136,7 +136,7 @@ function ColumnsMenu({ cols, setCol }: { cols: Record<ColKey, boolean>; setCol: 
             <path d="M8 4.5v11M12.5 4.5v11" />
           </svg>
           Columns
-          <span className="rounded-full bg-forest-50 px-1.5 text-xs text-forest-800">
+          <span className="rounded-full bg-forest-50 px-1.5 text-xs text-brand-strong">
             {shown}/{COLS.length}
           </span>
         </span>
@@ -157,7 +157,7 @@ function ColumnsMenu({ cols, setCol }: { cols: Record<ColKey, boolean>; setCol: 
 
 function SortIcon({ state }: { state: "asc" | "desc" | null }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 12 14" width="10" height="12" fill="currentColor" className={state ? "text-forest-700" : "text-faint/60"}>
+    <svg aria-hidden="true" viewBox="0 0 12 14" width="10" height="12" fill="currentColor" className={state ? "text-brand" : "text-faint/60"}>
       <path d="M6 1.5l3.5 4.5h-7z" opacity={state === "desc" ? 0.25 : 1} />
       <path d="M6 12.5L2.5 8h7z" opacity={state === "asc" ? 0.25 : 1} />
     </svg>
@@ -300,7 +300,7 @@ export function Transactions({ rows, categories, month, closed }: { rows: Displa
                 setGroup([]);
                 setStatus(["included"]);
               }}
-              className="ml-2 font-medium text-forest-700 hover:underline"
+              className="ml-2 font-medium text-brand hover:underline"
             >
               Reset filters
             </button>
@@ -506,18 +506,18 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
   return (
     <div className="space-y-4 text-sm">
       {/* Hero: what this expense costs me */}
-      <section className="rounded-2xl bg-forest-800 p-6 text-canvas">
+      <section className="rounded-2xl bg-hero p-6 text-[#f7f5ef]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-forest-100/80">My share</p>
-            <p className={`mt-1 text-4xl font-semibold tracking-tight tabular-nums ${counts ? "" : "line-through decoration-forest-100/50"}`}>{formatUSD(counts ? row.shareMinor : 0)}</p>
-            <p className="mt-1.5 text-forest-100/80">
-              of <span className="font-medium text-canvas tabular-nums">{money(row, row.costMinor)}</span> full cost
+            <p className="text-xs uppercase tracking-wide text-[#d8e8dd]/80">My share</p>
+            <p className={`mt-1 text-4xl font-semibold tracking-tight tabular-nums ${counts ? "" : "line-through decoration-[#d8e8dd]/50"}`}>{formatUSD(counts ? row.shareMinor : 0)}</p>
+            <p className="mt-1.5 text-[#d8e8dd]/80">
+              of <span className="font-medium text-[#f7f5ef] tabular-nums">{money(row, row.costMinor)}</span> full cost
             </p>
           </div>
-          <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ${s.tone === "forest" ? "bg-forest-100 text-forest-800" : s.tone === "warn" ? "bg-warn-50 text-warn" : "bg-canvas text-muted"}`}>{s.text}</span>
+          <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold ${s.tone === "forest" ? "bg-white/15 text-[#d8e8dd]" : s.tone === "warn" ? "bg-warn-50 text-warn" : "bg-canvas text-muted"}`}>{s.text}</span>
         </div>
-        {row.status !== "included" && <p className="mt-4 rounded-lg bg-white/10 px-3 py-2 text-forest-100">{row.reasonText}</p>}
+        {row.status !== "included" && <p className="mt-4 rounded-lg bg-white/10 px-3 py-2 text-[#d8e8dd]">{row.reasonText}</p>}
       </section>
 
       <section className="rounded-2xl border border-line bg-surface">
@@ -534,7 +534,7 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
           <ol className="animate-fade-in space-y-3 border-t border-line px-5 py-4">
             {row.derivation.map((d, i) => (
               <li key={i} className="flex gap-3">
-                <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-forest-50 text-xs font-semibold text-forest-800">{i + 1}</span>
+                <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-forest-50 text-xs font-semibold text-brand-strong">{i + 1}</span>
                 <span className="min-w-0 break-words text-muted">{d}</span>
               </li>
             ))}
@@ -579,7 +579,7 @@ export function RowDetail({ row, categories, month, closed, onClose }: { row: Di
                       const id = categories.find((c) => c.name === row.suggestion)?.id;
                       if (id) mapCat.run({ splitwiseName: row.sourceCategory!, categoryId: id });
                     }}
-                    className="inline-flex h-10 items-center rounded-xl border border-forest-100 bg-forest-50 px-3.5 text-sm font-medium text-forest-800 transition hover:bg-forest-100 disabled:opacity-60"
+                    className="inline-flex h-10 items-center rounded-xl border border-forest-100 bg-forest-50 px-3.5 text-sm font-medium text-brand-strong transition hover:bg-forest-100 disabled:opacity-60"
                   >
                     Always map “{row.sourceCategory}” → {row.suggestion}
                   </button>

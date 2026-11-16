@@ -16,7 +16,7 @@ export default async function ImportPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Import Splitwise CSV exports</h1>
-        <Link href={`/expenses/${currentMonthNY()}`} className="text-sm font-medium text-forest-700 hover:underline">
+        <Link href={`/expenses/${currentMonthNY()}`} className="text-sm font-medium text-brand hover:underline">
           Back to expenses
         </Link>
       </div>

@@ -46,7 +46,7 @@ export function BudgetEditor({
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="h-9 rounded-lg px-3 text-sm font-medium text-forest-700 hover:bg-forest-50">
+      <button onClick={() => setOpen(true)} className="h-9 rounded-lg px-3 text-sm font-medium text-brand hover:bg-forest-50">
         Edit budget
       </button>
       <Drawer open={open} onClose={() => setOpen(false)} title={`Budget · ${monthLabel(month)}`}>

@@ -17,7 +17,7 @@ export default async function HistoryPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Import monthly history</h1>
-        <Link href="/settings" className="text-sm font-medium text-forest-700 hover:underline">
+        <Link href="/settings" className="text-sm font-medium text-brand hover:underline">
           Back to settings
         </Link>
       </div>
@@ -35,7 +35,7 @@ export default async function HistoryPage() {
           <ul className="grid gap-x-6 text-sm sm:grid-cols-2">
             {summaries.map(([m, cats]) => (
               <li key={m} className="flex justify-between border-b border-line/60 py-1.5">
-                <Link href={`/expenses/${m}`} className="text-forest-700 hover:underline">
+                <Link href={`/expenses/${m}`} className="text-brand hover:underline">
                   {monthLabel(m)}
                 </Link>
                 <span className="tabular-nums">{formatUSD([...cats.values()].reduce((a, b) => a + b, 0))}</span>

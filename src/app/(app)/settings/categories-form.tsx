@@ -12,7 +12,7 @@ export function CategoriesForm({ categories }: { categories: { id: string; name:
     <div className="space-y-4">
       <ul className="flex flex-wrap gap-2 text-sm">
         {categories.map((c) => (
-          <li key={c.id} className={`rounded-full border px-3 py-1 ${c.kind === "custom" ? "border-forest-100 bg-forest-50 text-forest-800" : "border-line"}`}>
+          <li key={c.id} className={`rounded-full border px-3 py-1 ${c.kind === "custom" ? "border-forest-100 bg-forest-50 text-brand-strong" : "border-line"}`}>
             {c.name}
           </li>
         ))}
