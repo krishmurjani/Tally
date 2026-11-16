@@ -11,7 +11,7 @@ import { checkPartPayment, splitPartPayment, type PartPaymentQuote } from "@/eng
 import { linkDrift, plannerInputs, type Scenario } from "@/engines/loan/scenario";
 import { formatINR, formatUSD, isParsableMinor, parseMinor } from "@/engines/money";
 import { isDecimalString } from "@/engines/rational";
-import { saveScenarioAction } from "@/server/actions/loan";
+import { fetchFxAction, saveScenarioAction } from "@/server/actions/loan";
 import { BalanceChart } from "./balance-chart";
 
 export interface LinkOption {
@@ -212,6 +212,33 @@ export function Planner({
   const deferred = useDeferredValue(s);
   const set = <K extends keyof Scenario>(k: K, v: Scenario[K]) => setS((p) => ({ ...p, [k]: v }));
 
+  // Live ₹ per $. In "auto" mode it is fetched each time the planner opens; typing or sliding the rate switches to "manual".
+  type FxInfo = { kind: "idle" } | { kind: "loading" } | { kind: "live"; date: string; source: string } | { kind: "failed"; message: string };
+  const [live, setLive] = useState<FxInfo>({ kind: "idle" });
+  async function refreshFx() {
+    // Let go of the number box so it shows the fetched rate rather than what was last typed.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setLive({ kind: "loading" });
+    try {
+      const r = await fetchFxAction();
+      if (r.ok) {
+        setS((p) => ({ ...p, fxInrPerUsd: r.data.rate, fxMode: "auto" }));
+        setLive({ kind: "live", date: r.data.date, source: r.data.source });
+      } else {
+        setLive({ kind: "failed", message: r.message });
+      }
+    } catch {
+      setLive({ kind: "failed", message: "couldn't reach the exchange-rate service" });
+    }
+  }
+  const fxFetchedOnOpen = useRef(false);
+  useEffect(() => {
+    if (fxFetchedOnOpen.current) return;
+    fxFetchedOnOpen.current = true;
+    if (initial.inputs.fxMode === "auto") void refreshFx();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Debounced autosave: no DB write per slider tick; "Saved" only after the server confirms.
   useEffect(() => {
     if (first.current) {
@@ -346,7 +373,40 @@ export function Planner({
         <Card title="Loan & conversion">
           <div className="space-y-4">
             <DecimalSlider label="Interest rate (annual)" value={s.annualRatePercent} onChange={(v) => set("annualRatePercent", v)} max={20} step={0.05} suffix="%" hint={rateNote} />
-            <DecimalSlider label="₹ per $" value={s.fxInrPerUsd} onChange={(v) => set("fxInrPerUsd", v)} max={120} step={0.5} suffix="₹" />
+            <DecimalSlider
+              label="₹ per $"
+              value={s.fxInrPerUsd}
+              onChange={(v) => setS((p) => ({ ...p, fxInrPerUsd: v, fxMode: "manual" }))}
+              max={120}
+              step={0.5}
+              suffix="₹"
+              hint={
+                <span className="block space-y-1.5">
+                  <span className="block">
+                    {s.fxMode === "auto"
+                      ? live.kind === "live"
+                        ? `Live rate: ₹${s.fxInrPerUsd} per $ — ${live.source}, ${live.date}. It refreshes every time you open the planner; change the number to use your own.`
+                        : live.kind === "loading"
+                          ? "Fetching the live rate…"
+                          : live.kind === "failed"
+                            ? `Couldn't fetch the live rate (${live.message}); using ₹${s.fxInrPerUsd}.`
+                            : `Using ₹${s.fxInrPerUsd}; the live rate loads when you open this page.`
+                      : "Your own rate — it stays as you set it until you press the button."}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void refreshFx()}
+                    disabled={live.kind === "loading"}
+                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink transition hover:bg-forest-50 disabled:opacity-60"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={live.kind === "loading" ? "animate-spin" : ""}>
+                      <path d="M16 10a6 6 0 1 1-1.8-4.3M16 4v3.5h-3.5" />
+                    </svg>
+                    {s.fxMode === "auto" ? "Refresh live rate" : "Use live rate"}
+                  </button>
+                </span>
+              }
+            />
             <DecimalSlider label="Transfer fee" value={s.transferFeePercent} onChange={(v) => set("transferFeePercent", v)} max={5} step={0.1} suffix="%" hint={`Effective: ₹${result.effectiveInrPerUsd} per $1 after fees.`} />
           </div>
         </Card>

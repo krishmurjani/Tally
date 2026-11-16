@@ -174,3 +174,19 @@ describe("the planner holds extras until they reach the portal minimum", () => {
     expect(shorten.plan.periods.filter((p) => p.phase === "emi")[1]!.requiredMinor).toBe(R(129_537));
   });
 });
+
+describe("live exchange rate parsing (Frankfurter)", () => {
+  it("accepts the service's answer and rounds to two decimals", async () => {
+    const { parseFrankfurter } = await import("@/engines/loan/fx");
+    expect(parseFrankfurter({ amount: 1, base: "USD", date: "2026-11-13", rates: { INR: 94.25 } })).toEqual({ rate: "94.25", date: "2026-11-13" });
+    expect(parseFrankfurter({ base: "USD", date: "2026-11-13", rates: { INR: 94.2549 } })!.rate).toBe("94.25");
+  });
+  it("rejects anything that isn't a believable USD→INR answer", async () => {
+    const { parseFrankfurter } = await import("@/engines/loan/fx");
+    expect(parseFrankfurter(null)).toBeNull();
+    expect(parseFrankfurter({ base: "EUR", date: "2026-11-13", rates: { INR: 94 } })).toBeNull();
+    expect(parseFrankfurter({ base: "USD", date: "2026-11-13", rates: { INR: "94" } })).toBeNull();
+    expect(parseFrankfurter({ base: "USD", date: "2026-11-13", rates: { INR: 0.9 } })).toBeNull();
+    expect(parseFrankfurter({ base: "USD", date: "13/11/2026", rates: { INR: 94.25 } })).toBeNull();
+  });
+});

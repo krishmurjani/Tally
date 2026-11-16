@@ -17,6 +17,7 @@ import {
   updatePayment,
   updateReimbursement,
 } from "../repos/loan";
+import { fetchLiveInrPerUsd } from "../fx";
 import { ownerAction } from "./run";
 
 const DateStr = z.string().refine((s) => {
@@ -134,4 +135,9 @@ export async function addRateChangeAction(input: unknown) {
 /** Debounced autosave from the planner. No revalidate: the client already holds the inputs. */
 export async function saveScenarioAction(input: unknown) {
   return ownerAction(z.object({ inputs: ScenarioSchema, expectedVersion: Version.nullable() }), input, ({ db, owner, input }) => saveScenario(db, owner, input));
+}
+
+/** The live ₹ per $ for the planner's "Use live rate" button and its automatic refresh. */
+export async function fetchFxAction() {
+  return ownerAction(z.object({}), {}, async () => fetchLiveInrPerUsd());
 }

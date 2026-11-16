@@ -25,6 +25,8 @@ export const ScenarioSchema = z.object({
   monthlyExtraUsdMinor: minor,
   annualRatePercent: decimal(100),
   fxInrPerUsd: decimal(1000),
+  /** "auto": the rate is fetched live each time the planner opens. Typing or sliding it switches to "manual". */
+  fxMode: z.enum(["auto", "manual"]).default("auto"),
   transferFeePercent: decimal(100),
   hysaApyPercent: decimal(100),
   startDate: z.string().refine(isIsoDate, "Expected a date"),
@@ -56,6 +58,7 @@ export function defaultScenario(today: IsoDate, annualRatePercent: string): Scen
     monthlyExtraUsdMinor: 0,
     annualRatePercent,
     fxInrPerUsd: PLANNER_DEFAULTS.fxInrPerUsd,
+    fxMode: "auto",
     transferFeePercent: PLANNER_DEFAULTS.transferFeePercent,
     hysaApyPercent: PLANNER_DEFAULTS.hysaApyPercent,
     startDate: today,
