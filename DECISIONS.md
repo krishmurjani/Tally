@@ -157,6 +157,15 @@ Each item is something I decided without an explicit instruction. Mark any you d
 106. **Already-posted expenses are not retro-categorised.** Expenses posted before this change are General in Splitwise; Tally keeps the right category on its side regardless.
 107. **Labels.** The confirmation says "No group (between friends)" for no-group items and "isn't in your friends" (not "this group") for them.
 
+### Recurring items screen (2026-11-16)
+108. **A fourth month tab, "Recurring"** (Spending · Income · Insights · Recurring), not a Settings page: it is where the numbers are. It lists every recurring item for the viewed month, with the month's fixed total on top, and adds, changes, ends, skips and deletes them.
+109. **The model is unchanged**: a series has versions with start months (and one end month), plus per-month overrides. The screen only manages them: *Add* (no end, a number of payments, or until a month), *change from a month* (earlier months keep what they had), *just this month* (skip, or a different amount, or back to normal), *end* (last month it counts) and *delete*.
+110. **Instalments.** An item with an end shows "Payment 5 of 12 · 7 left · ends Oct 2027" and a progress bar. "A number of payments" turns into an end month (first month + N − 1).
+111. **Consistency rules**: only the latest version carries the end month; a change can't start after the end; ending an item earlier removes versions that would start after it; a series whose end is before its start is refused. Deleting an item removes its rules and overrides.
+112. **Closed months keep their snapshot**; changes apply to open months (the screen says so when you edit from a closed month). As before, a month with no data source doesn't get recurring rows (decision 54).
+113. **Recurring items count like any expense**: they appear in the transactions list tagged "recurring", in the category totals and in the budget. A new item in an already budgeted category can push it over budget (a $41.66 instalment in Phone, budgeted $25, shows as over).
+114. Nothing recurring is read from a card or bank (e.g. Apple Card); items are entered by hand.
+
 ## Backup, export, PWA, polish (Phase 7)
 70. **Backup format**: `{ format: "tally-backup", version: 1, exportedAt, owner, tables }`. It covers every owner table, including raw Splitwise JSON, imported CSV text and the audit log. Sync-run history is not backed up, and each expense's link to its sync run is cleared. The web download is gzip-compressed (`.json.gz`) to stay under Vercel's 4.5 MB response limit; `pnpm backup` has no limit.
 71. **Restore** always runs a dry run first, with per-table counts of new / identical / different / only-in-database rows. Then either:

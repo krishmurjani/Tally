@@ -7,6 +7,7 @@ const TABS = [
   { key: "spending", label: "Spending", suffix: "" },
   { key: "income", label: "Income", suffix: "/income" },
   { key: "insights", label: "Insights", suffix: "/insights" },
+  { key: "recurring", label: "Recurring", suffix: "/recurring" },
 ] as const;
 
 /** Month picker (always visible in Expenses) + the Spending / Income / Insights tabs. */
@@ -20,8 +21,8 @@ export function MonthHeader({ month, tab, caption }: { month: MonthKey; tab: (ty
         storageKey="expenses-views"
         activeKey={tab}
         items={TABS.map((t) => ({ key: t.key, href: `/expenses/${month}${t.suffix}`, label: t.label }))}
-        className="grid w-full grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1 text-sm sm:flex sm:w-auto"
-        itemClass="flex h-9 items-center justify-center rounded-lg px-3"
+        className="grid w-full grid-cols-4 gap-1 rounded-xl border border-line bg-surface p-1 text-[13px] sm:flex sm:w-auto sm:text-sm"
+        itemClass="flex h-9 items-center justify-center rounded-lg px-1.5 sm:px-3"
         activeClass="font-medium text-brand-strong"
         inactiveClass="text-muted hover:text-brand-strong"
         pillClass="rounded-lg"
